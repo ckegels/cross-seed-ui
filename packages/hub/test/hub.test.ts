@@ -111,9 +111,10 @@ describe("router", () => {
 		r.add("PUT", "/api/instances/:id/*", () => "proxy");
 		r.add("PUT", "/api/instances/:id/prowlarr", () => "exact");
 		const m = r.match("PUT", "/api/instances/3/prowlarr");
-		assert.ok(m && m !== "method");
-		if (m && m !== "method") assert.equal(m.route.handler({} as never, {} as never), "exact");
+		assert.ok(m && typeof m === "object");
+		assert.equal(m.route.handler({} as never, {} as never), "exact");
 		const w = r.match("PUT", "/api/instances/3/config");
-		assert.ok(w && w !== "method" && w.params["*"] === "config");
+		assert.ok(w && typeof w === "object");
+		assert.equal(w.params["*"], "config");
 	});
 });
