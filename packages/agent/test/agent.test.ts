@@ -103,7 +103,7 @@ describe("ActivityTracker", () => {
 		const p = (n: number) => String(n).padStart(2, "0");
 		const d = new Date();
 		const ts = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.000`;
-		feed(t, `${ts} error: [torznab] Failed to reach Torr9 (Prowlarr): request failed`);
+		feed(t, `${ts} error: [qbittorrent] qBittorrent login failed: Torr9 test error`);
 		assert.match(t.snapshot(true).lastError?.text ?? "", /Torr9/);
 		feed(t, `${ts} info: [server] Server is running on port 2468, ^C to stop.`);
 		assert.equal(t.snapshot(true).lastError, null);
