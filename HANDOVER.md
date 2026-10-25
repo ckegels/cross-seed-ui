@@ -190,8 +190,28 @@ deploy/                ← install.sh, systemd units
 
 ## 5. Current status
 
-**Step 6 — packaging, install/update scripts, release (in progress).** Web UI is functional and was checked
-with screenshots against a real cross-seed 6.13.9 + mock indexers.
+**Step 7 — polish, README, GitHub repo + release workflow (in progress).** Packaging, installer, update and
+rollback are done and were tested end-to-end in systemd containers that mimic the community-script LXC.
+
+#### Packaging & install — done
+- `scripts/build.mjs` → `dist/` (agent.mjs + hub.mjs bundled by esbuild, web/, bin/cross-seed-ui, deploy/, VERSION);
+  `--release` → `release/cross-seed-ui-<v>.tar.gz` + `.sha256` (~210 KB). Version from `CSUI_VERSION` or package.json.
+- `deploy/install.sh` (roles agent|hub|both, `--update`, `--tarball`, `--version`, `--token`, `--allow-ip`, ...):
+  checks Node ≥ 22.13 (offers NodeSource 22), downloads the release asset from the **private** repo with the token
+  (stored in `/etc/cross-seed-ui/github-token`, 0640 root:csui), verifies sha256, installs to
+  `/opt/cross-seed-ui/releases/<v>` + `current` symlink (keeps 3), never overwrites existing configs, creates system user
+  `csui` for the hub, installs sandboxed systemd units and **auto-disables sandboxing via a drop-in if the LXC
+  refuses namespaces**, role `both` registers the local agent (agent then listens on 127.0.0.1 only), prints the setup token.
+- `deploy/cross-seed-ui` CLI: status, update [v], rollback, logs, restart, agent-info, setup-token, reset-password,
+  disable-2fa, add-instance, version, uninstall. Hub CLI subcommands live in `packages/hub/src/cli.ts`.
+- Layout on the LXC: `/opt/cross-seed-ui`, `/etc/cross-seed-ui/{agent,hub}.json, install.conf, github-token`,
+  `/var/lib/cross-seed-ui/{agent,hub}` (agent: agent.db + backups/, hub: hub.db, secret.key, setup-token).
+
+#### End-to-end test (docker, `scratchpad/lxc-sim/Dockerfile`)
+Debian 12 + systemd + Node 24 + `npm i -g cross-seed@6.13.9` + root `cross-seed.service` (= community script).
+Verified: install role both, setup token, hub overview, validator errors == cross-seed's own errors for the default
+gen-config, save+restart via systemd (1.1 s, verified), audit entry, second container role agent with `--allow-ip`,
+added to hub, wrong secret → 401, foreign IP → 403, update 0.1.0 → 0.1.1 with tarball, rollback.
 
 #### Web (packages/web) — done (first version)
 - React 19 + Vite 8 + Tailwind 4, no router/chart libs (own `router.tsx`, own SVG charts in `charts/index.tsx`
@@ -266,8 +286,8 @@ with screenshots against a real cross-seed 6.13.9 + mock indexers.
 - [x] Agent: config read/write/backup/rollback, DB stats, logs + SSE, service control, job triggers, connection tests
 - [x] Hub: setup/login/sessions/2FA/rate-limit, instances, proxy, Prowlarr, audit log
 - [x] Web: login, overview, instance dashboard, activity/logs, indexers, connections, settings, history, maintenance
-- [ ] Install/update script + systemd units + release workflow
-- [ ] End-to-end test against a real cross-seed 6.13.9 daemon (local)
+- [x] Install/update script + systemd units (release workflow: written, not yet run on GitHub)
+- [x] End-to-end test against a real cross-seed 6.13.9 daemon (local + systemd containers)
 - [ ] README
 
 ---
@@ -285,3 +305,4 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Agent written and tested against real cross-seed 6.13.9 (save/restart/rollback verified).
 - 2026-10-25 — Hub written; smoke-tested setup token, login, CSRF, instance add, overview, proxy whitelist, headers.
 - 2026-10-25 — Web UI written; mock Torznab + screenshots; fixed indexer URL matching, delayed last_run, searching state.
+- 2026-10-25 — Build/release script, installer, CLI, systemd units; e2e tested install/agent/update/rollback in containers.

@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# cross-seed-ui management command (installed as /usr/local/bin/cross-seed-ui)
+set -euo pipefail
+
+PREFIX=/opt/cross-seed-ui
+ETC=/etc/cross-seed-ui
+NODE="$(command -v node || echo /usr/bin/node)"
+ROLE=""
+if [[ -f $ETC/install.conf ]]; then
+	# shellcheck disable=SC1091
+	source "$ETC/install.conf"
+	ROLE="${INSTALLED_ROLE:-}"
+fi
+
+units() {
+	case "$ROLE" in
+		agent) echo cross-seed-ui-agent ;;
+		hub) echo cross-seed-ui-hub ;;
+		both) echo cross-seed-ui-hub cross-seed-ui-agent ;;
+	esac
+}
+
+need_root() { [[ $EUID -eq 0 ]] || { echo "Run as root" >&2; exit 1; }; }
+
+hub_cmd() {
+	need_root
+	[[ $ROLE == hub || $ROLE == both ]] || { echo "No hub installed in this LXC" >&2; exit 1; }
+	runuser -u csui -- "$NODE" --disable-warning=ExperimentalWarning "$PREFIX/current/hub.mjs" --config "$ETC/hub.json" "$@"
+}
+
+usage() {
+	cat <<EOF
+cross-seed-ui $(cat "$PREFIX/current/VERSION" 2>/dev/null || echo "?") (role: ${ROLE:-not installed})
+
+Usage: cross-seed-ui <command>
+  status                      service status
+  update [version]            download and install the latest (or given) release, restart services
+  rollback                    switch back to the previous installed release
+  logs [agent|hub]            follow the service log
+  restart                     restart the cross-seed-ui services
+  agent-info                  print the URL and secret to add this agent in a hub
+  setup-token                 print the first-run setup token (hub)
+  reset-password <user>       set a new random password (hub)
+  disable-2fa <user>          turn off two-factor auth for a user (hub)
+  add-instance <name> <url> <secretFile>   register an agent in the hub
+  version                     print the installed version
+  uninstall                   remove cross-seed-ui (keeps cross-seed untouched)
+EOF
+}
+
+cmd="${1:-help}"
+shift || true
+case "$cmd" in
+	version) cat "$PREFIX/current/VERSION" ;;
+	status)
+		for u in $(units); do systemctl --no-pager status "$u" | head -n 5; echo; done
+		;;
+	update)
+		need_root
+		args=(--update -y)
+		[[ -n ${1:-} ]] && args+=(--version "$1")
+		exec "$PREFIX/current/deploy/install.sh" "${args[@]}"
+		;;
+	rollback)
+		need_root
+		cur="$(readlink -f "$PREFIX/current")"
+		prev="$(ls -1dt "$PREFIX"/releases/* | grep -vxF "$cur" | head -n 1 || true)"
+		[[ -n $prev ]] || { echo "No previous release to roll back to" >&2; exit 1; }
+		ln -sfn "$prev" "$PREFIX/current"
+		sed -i "s/^INSTALLED_VERSION=.*/INSTALLED_VERSION=$(cat "$prev/VERSION")/" "$ETC/install.conf"
+		for u in $(units); do systemctl restart "$u"; done
+		echo "Rolled back to $(cat "$prev/VERSION")"
+		;;
+	restart)
+		need_root
+		for u in $(units); do systemctl restart "$u"; done
+		;;
+	logs)
+		which="${1:-}"
+		if [[ -z $which ]]; then
+			args=()
+			for u in $(units); do args+=(-u "$u"); done
+			exec journalctl -f -n 100 "${args[@]}"
+		fi
+		exec journalctl -f -n 100 -u "cross-seed-ui-$which"
+		;;
+	agent-info)
+		need_root
+		[[ -f $ETC/agent.json ]] || { echo "No agent installed in this LXC" >&2; exit 1; }
+		"$NODE" -e '
+			const s = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+			const ip = require("os").networkInterfaces();
+			const addr = Object.values(ip).flat().find((a) => a && a.family === "IPv4" && !a.internal)?.address ?? "<lxc-ip>";
+			const host = s.listen === "0.0.0.0" ? addr : s.listen;
+			console.log(`URL:    http://${host}:${s.port}`);
+			console.log(`Secret: ${s.secret}`);
+			if (s.listen === "127.0.0.1") console.log("(listens on localhost only: reachable by a hub in this LXC)");
+		' "$ETC/agent.json"
+		;;
+	setup-token | reset-password | disable-2fa | add-instance)
+		hub_cmd "$cmd" "$@"
+		;;
+	uninstall)
+		need_root
+		read -r -p "Remove cross-seed-ui (services, $PREFIX, configs and state)? cross-seed itself is not touched. [y/N] " yn
+		[[ $yn == y* ]] || exit 0
+		for u in cross-seed-ui-hub cross-seed-ui-agent; do
+			systemctl disable --now "$u" 2>/dev/null || true
+			rm -rf "/etc/systemd/system/$u.service" "/etc/systemd/system/$u.service.d"
+		done
+		systemctl daemon-reload
+		rm -rf "$PREFIX" /usr/local/bin/cross-seed-ui
+		read -r -p "Also delete settings, users and history ($ETC, /var/lib/cross-seed-ui)? [y/N] " yn
+		if [[ $yn == y* ]]; then rm -rf "$ETC" /var/lib/cross-seed-ui; userdel csui 2>/dev/null || true; fi
+		echo "Removed."
+		;;
+	help | -h | --help) usage ;;
+	*) usage; exit 1 ;;
+esac

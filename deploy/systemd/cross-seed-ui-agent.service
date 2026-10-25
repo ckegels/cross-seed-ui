@@ -1,0 +1,27 @@
+[Unit]
+Description=cross-seed-ui agent (manages the local cross-seed daemon)
+Documentation=https://github.com/ckegels/cross-seed-ui
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# root: cross-seed runs as root in the Proxmox community-script LXC, and the
+# agent must edit /root/.cross-seed/config.js and `systemctl restart cross-seed`.
+User=root
+Environment=NODE_ENV=production
+ExecStart=@NODE@ --disable-warning=ExperimentalWarning @PREFIX@/current/agent.mjs --config @ETC@/agent.json
+Restart=on-failure
+RestartSec=5
+# hardening that still allows managing cross-seed
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

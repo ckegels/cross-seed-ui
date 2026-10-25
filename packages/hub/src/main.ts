@@ -9,6 +9,7 @@ import { createServer as createHttpsServer } from "node:https";
 import { join } from "node:path";
 import { HttpError, Router, sendError, sendJson, serveStatic } from "@csui/shared/src/node/http.ts";
 import { csrfCheck, LoginThrottle, Sessions } from "./auth.ts";
+import { CLI_COMMANDS, runCli } from "./cli.ts";
 import type { HubContext } from "./context.ts";
 import { SecretBox } from "./crypto.ts";
 import { openHubDb } from "./db.ts";
@@ -51,6 +52,10 @@ async function main() {
 		return;
 	}
 	const settings = loadHubSettings(settingsPathFromArgs(process.argv));
+	const cliIdx = process.argv.findIndex((a) => CLI_COMMANDS.includes(a));
+	if (cliIdx >= 0) {
+		process.exit(await runCli(settings, process.argv.slice(cliIdx)));
+	}
 	const db = openHubDb(settings.stateDir);
 	const box = new SecretBox(join(settings.stateDir, "secret.key"));
 	const ctx: HubContext = {
