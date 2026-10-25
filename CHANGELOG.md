@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2
+
+- Fix: the Prowlarr panel on an instance's Indexers tab could not load or save its sync settings (the route was
+  shadowed by the agent proxy route). Exact routes now always take priority over wildcard routes.
+- Demo kit (`scripts/demo/demo.sh`) with real cross-seed daemons, fake services and two weeks of history.
+
 ## 0.1.1
 
 - Installer: fix the hub failing to start when a GitHub token was given (a restrictive umask leaked into the
