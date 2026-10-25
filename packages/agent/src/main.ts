@@ -31,6 +31,7 @@ async function main() {
 	const daemon = new CrossSeedDaemon(settings.crossSeedBin, settings.crossSeedDir, csdb, {
 		url: settings.crossSeedUrl,
 		exec: service.exec?.bind(service),
+		version: service.crossSeedVersion?.bind(service),
 	});
 	const tailer = new LogTailer(settings.crossSeedDir, state, {
 		backfill: settings.backfillLogs,

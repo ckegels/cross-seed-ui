@@ -24,6 +24,8 @@ export interface AgentSettings {
 		name: string;
 		/** docker only: unix:///var/run/docker.sock or tcp://socket-proxy:2375 */
 		dockerHost?: string;
+		/** docker only: allow `docker exec` into the cross-seed container (maintenance commands) */
+		exec?: boolean;
 		command?: string[];
 		env?: Record<string, string>;
 	};
@@ -68,6 +70,7 @@ export function settingsFromEnv(env = process.env): Partial<AgentSettings> {
 			manager: (env.CSUI_SERVICE_MANAGER as AgentSettings["service"]["manager"]) ?? "docker",
 			name: env.CSUI_CROSS_SEED_CONTAINER ?? env.CSUI_SERVICE_NAME ?? "cross-seed",
 			dockerHost: env.DOCKER_HOST,
+			exec: env.CSUI_DOCKER_EXEC === "true",
 		};
 	}
 	return out;

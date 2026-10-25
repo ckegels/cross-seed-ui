@@ -78,6 +78,10 @@ export class ActivityTracker {
 			this.resetProgress();
 		}
 		if (e.message.includes("Your configuration is invalid")) this.bootingSince = null;
+		// the daemon is evidently running (CLI runs like test-notification also log "Validating...")
+		if (this.bootingSince !== null && e.label && ["scheduler", "rss", "announce", "webhook", "server"].includes(e.label)) {
+			this.bootingSince = null;
+		}
 		if (["info", "warn", "error"].includes(e.level)) {
 			this.lastEvent = { ts: e.ts, text: shorten(`${e.label ? `[${e.label}] ` : ""}${e.message}`) };
 		}
@@ -132,6 +136,11 @@ export class ActivityTracker {
 				this.lastError = { ts: e.ts, text: shorten(e.message) };
 				break;
 		}
+	}
+
+	/** called when the daemon API answers: whatever logged "Validating..." isn't a boot in progress */
+	markOnline() {
+		this.bootingSince = null;
 	}
 
 	private resetProgress() {

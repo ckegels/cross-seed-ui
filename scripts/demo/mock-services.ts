@@ -18,6 +18,9 @@ import { LIBRARY, LISTINGS, type Listing, prowlarrName, type Release, TRACKERS, 
 const dataRoot = process.argv[2];
 const port = Number(process.argv[3] ?? 9696);
 const PROWLARR_KEY = "demo0prowlarr0key0123456789abcdef";
+// containers: MOCK_HOST=0.0.0.0 and MOCK_PUBLIC_URL=http://mock:9696
+const LISTEN_HOST = process.env.MOCK_HOST ?? "127.0.0.1";
+const PUBLIC_URL = (process.env.MOCK_PUBLIC_URL ?? `http://127.0.0.1:${port}`).replace(/\/+$/, "");
 if (!dataRoot) throw new Error("usage: mock-services.ts <dataRoot> [port]");
 
 // ---------------------------------------------------------------- bencode
@@ -165,7 +168,7 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 const norm = (s: string) => s.toLowerCase().replace(/\[[^\]]*\]/g, " ").replace(/[^a-z0-9]+/g, " ").trim();
 
 function rssItem(l: Listing, guidSuffix = "") {
-	const link = `http://127.0.0.1:${port}/${l.tracker.id}/download/${l.release.key}-${l.kind}.torrent?apikey=${PROWLARR_KEY}`;
+	const link = `${PUBLIC_URL}/${l.tracker.id}/download/${l.release.key}-${l.kind}.torrent?apikey=${PROWLARR_KEY}`;
 	return `<item><title>${esc(l.name)}</title><guid>${esc(l.guid + guidSuffix)}</guid><prowlarrindexer id="${l.tracker.id}" type="private">${esc(prowlarrName(l.tracker))}</prowlarrindexer><link>${esc(link)}</link><size>${l.size}</size><pubDate>${new Date(l.pubDate * 1000).toUTCString()}</pubDate><enclosure url="${esc(link)}" length="${l.size}" type="application/x-bittorrent"/><torznab:attr name="category" value="${l.release.category.startsWith("tv") || l.release.category === "anime" ? 5000 : 2000}"/></item>`;
 }
 
@@ -331,6 +334,6 @@ createServer(async (req, res) => {
 		console.error(e);
 		return text(String(e), 500);
 	}
-}).listen(port, "127.0.0.1", () => console.log(`[demo] mock services on http://127.0.0.1:${port}`));
+}).listen(port, LISTEN_HOST, () => console.log(`[demo] mock services on http://${LISTEN_HOST}:${port} (links: ${PUBLIC_URL})`));
 
 export type { Release };

@@ -1,0 +1,77 @@
+# cross-seed + cross-seed-ui with Docker Compose.
+# 1. cp .env.example .env and set CSUI_AGENT_SECRET (openssl rand -base64 32)
+# 2. adjust the volumes (your cross-seed config folder and your media)
+# 3. docker compose up -d, then open http://<host>:2470 (setup token: docker compose logs cross-seed-ui)
+# Full guide: docs/docker.md
+
+services:
+  cross-seed:
+    image: ghcr.io/cross-seed/cross-seed:6
+    container_name: cross-seed
+    user: "1000:1000"
+    restart: unless-stopped
+    command: daemon
+    volumes:
+      - ./cross-seed:/config
+      # the same paths your torrent client uses, so linking works
+      - /path/to/torrents:/data/torrents
+    ports:
+      - "2468:2468"
+
+  # Gives the agent a tiny, read-mostly slice of the Docker API: inspect, logs,
+  # start/stop/restart. It never sees the Docker socket itself.
+  socket-proxy:
+    image: lscr.io/linuxserver/socket-proxy:latest
+    container_name: cross-seed-ui-socket-proxy
+    restart: unless-stopped
+    environment:
+      - CONTAINERS=1
+      - ALLOW_START=1
+      - ALLOW_STOP=1
+      - ALLOW_RESTARTS=1
+      - ALLOW_LOGS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+      - /run
+
+  cross-seed-ui-agent:
+    image: ghcr.io/ckegels/cross-seed-ui:latest
+    container_name: cross-seed-ui-agent
+    command: agent
+    user: "1000:1000"
+    restart: unless-stopped
+    environment:
+      - CSUI_AGENT_SECRET=${CSUI_AGENT_SECRET:?set CSUI_AGENT_SECRET in .env}
+      - CSUI_CROSS_SEED_CONTAINER=cross-seed
+      - CSUI_CROSS_SEED_URL=http://cross-seed:2468
+      - DOCKER_HOST=tcp://socket-proxy:2375
+    volumes:
+      - ./cross-seed:/config
+      - cross-seed-ui-agent:/state
+      # optional: same media mount as cross-seed, for disk space and the folder picker
+      - /path/to/torrents:/data/torrents:ro
+    depends_on:
+      - cross-seed
+      - socket-proxy
+
+  cross-seed-ui:
+    image: ghcr.io/ckegels/cross-seed-ui:latest
+    container_name: cross-seed-ui
+    command: hub
+    restart: unless-stopped
+    environment:
+      - CSUI_AGENT_URL=http://cross-seed-ui-agent:2469
+      - CSUI_AGENT_SECRET=${CSUI_AGENT_SECRET}
+      - CSUI_AGENT_NAME=${CSUI_AGENT_NAME:-cross-seed}
+    volumes:
+      - cross-seed-ui-hub:/state
+    ports:
+      - "2470:2470"
+    depends_on:
+      - cross-seed-ui-agent
+
+volumes:
+  cross-seed-ui-agent:
+  cross-seed-ui-hub:

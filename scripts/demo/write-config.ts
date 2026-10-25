@@ -17,7 +17,7 @@ const config = {
 	host: "127.0.0.1",
 	port: Number(port),
 	notificationWebhookUrls: [`${mock}/notify/demo0apprise0token0123456789ab`],
-	torrentClients: [`qbittorrent:http://admin:demo%40pass@127.0.0.1:${new URL(mock).port}/qbit/${inst}`],
+	torrentClients: [`qbittorrent:http://admin:demo%40pass@${new URL(mock).host}/qbit/${inst}`],
 	useClientTorrents: true,
 	delay: 30,
 	linkDirs: [join(root, inst, "links")],

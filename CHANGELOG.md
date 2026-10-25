@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+- **Docker support.** One image, `ghcr.io/ckegels/cross-seed-ui` (amd64 + arm64), runs as web UI (`hub`) or `agent`.
+  The agent manages the official cross-seed container through the Docker API behind a socket proxy (inspect, logs,
+  start/stop/restart; `docker exec` for maintenance commands is opt-in). Configured with environment variables; the
+  web UI registers agents from `CSUI_AGENT_URL`/`CSUI_AGENT_SECRET`. `docker-compose.yml`, `.env.example` and
+  [docs/docker.md](docs/docker.md).
+- Works with Docker Engine 29 (no pinned old API version).
+- The "starting" state is only shown while cross-seed's API is really down (CLI runs that log "Validating..." no
+  longer make a running daemon look like it is starting).
+
 ## 0.2.1
 
 Fixes from the first real installs:

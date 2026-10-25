@@ -214,6 +214,25 @@ subshell umask for the token, `tar --no-same-owner`, release chowned root and ch
   (it is code executed as root). Viewer role only gets GETs without `reveal`.
 - No `dangerouslySetInnerHTML`; strict CSP; all state-changing requests need `x-csui: 1`.
 
+#### Docker (0.3.0)
+- `Dockerfile` (node:22-alpine, multi-stage, runs as `node` = uid 1000, state in `/state`), `docker/entrypoint.sh`
+  (`hub|agent|healthcheck|setup-token|reset-password|disable-2fa|version`), `docker-compose.yml`, `.env.example`,
+  `docs/docker.md`. Release workflow pushes `ghcr.io/ckegels/cross-seed-ui:{latest,<version>}` for amd64+arm64.
+- Agent `service.manager = "docker"` (`packages/agent/src/docker.ts`): Docker Engine API over unix socket or
+  `tcp://socket-proxy:2375`, **unversioned paths** (Docker 29 rejects API < 1.44), container inspect/start/stop/restart,
+  logs (multiplexed stream demux, timestamps for ordering), exec (opt-in `CSUI_DOCKER_EXEC=true`; through
+  linuxserver/socket-proxy it needs POST=1 + EXEC=1 = root-equivalent, hence off by default).
+- Without exec: version from the image label `org.opencontainers.image.version` ("version-6.13.9"); API key read
+  from the DB after poking `/api/status` (cross-seed generates the key on the first authenticated request);
+  maintenance buttons answer with the `docker exec ...` command to run by hand.
+- Settings from env: agent `settingsFromEnv` (CSUI_AGENT_SECRET, CSUI_CROSS_SEED_CONTAINER, CSUI_CROSS_SEED_URL,
+  DOCKER_HOST, ...), hub `hubSettingsFromEnv` + `agentsFromEnv` (CSUI_AGENT[_N]_URL/_SECRET/_NAME, registered at start).
+- Socket proxy needs `CONTAINERS=1 ALLOW_START=1 ALLOW_STOP=1 ALLOW_RESTARTS=1 ALLOW_LOGS=1`.
+- Tested 2026-10-25 with the official cross-seed 6.13.9 image + linuxserver/socket-proxy + fake services
+  (mock needs `MOCK_HOST=0.0.0.0 MOCK_PUBLIC_URL=http://mock:9696` in containers): setup, overview, version, API key,
+  restart+verify, job trigger, container log, save+restart, invalid config → auto rollback (31 s), opt-in exec.
+  This machine has no compose plugin: the standalone `docker-compose` binary was used.
+
 #### Demo environment (scripts/demo/) — added 2026-10-25
 `scripts/demo/demo.sh start|stop|reset` (DEMO_DIR default /tmp/cross-seed-ui-demo, hub on :2470,
 login `demo` / `show me around`, viewer `viewer` / `look but dont touch`). Two **real** cross-seed 6.13.9 daemons
@@ -354,6 +373,7 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Mobile overflow fix, status hints, raw-path proxy signing, more tests (40), README/CHANGELOG/CI/release workflow.
 - 2026-10-25 — Private GitHub repo created, CI green, v0.1.0 released; real GitHub install test found the umask bug → v0.1.1.
 - 2026-10-25 — Demo kit (scripts/demo); found + fixed router wildcard shadowing the Prowlarr policy routes (v0.1.2).
+- 2026-10-25 — 0.3.0: Docker image + compose + docs, docker service manager, env settings, agent auto-registration.
 - 2026-10-25 — 0.2.1 from the first real install: Prowlarr picker replaced instead of adding (now starts from
   config + confirms removals), restart progress UI, "starting" state, health-table Test 401 (DB url has no apikey),
   Prowlarr names for unnamed indexers, manual `cross-seed search` detection, /usr/bin link. Docker support in progress.

@@ -37,7 +37,7 @@ function ServiceCard({ id }: { id: number }) {
 	};
 	const s = info.data?.service;
 	return (
-		<Card title="cross-seed service" subtitle={s ? `${s.manager === "systemd" ? "systemd unit" : "process"}: ${s.name}` : undefined}>
+		<Card title="cross-seed service" subtitle={s ? `${s.manager === "systemd" ? "systemd unit" : s.manager === "docker" ? "Docker container" : "process"}: ${s.name}` : undefined}>
 			{!info.data ? (
 				info.error ? <ErrorBox error={info.error} /> : <Spinner />
 			) : (
@@ -106,7 +106,7 @@ function MaintenanceCard({ id }: { id: number }) {
 		}
 	};
 	return (
-		<Card title="Maintenance commands" subtitle="Official cross-seed CLI commands, run on the LXC">
+		<Card title="Maintenance commands" subtitle="Official cross-seed CLI commands, run where cross-seed runs">
 			{!data ? (
 				<Spinner />
 			) : (
@@ -240,7 +240,7 @@ function JournalCard({ id }: { id: number }) {
 	return (
 		<Card
 			title="Service output"
-			subtitle="Console output of the cross-seed process (systemd journal). Useful when it does not start."
+			subtitle="Console output of cross-seed (systemd journal or Docker container log). Useful when it does not start."
 			actions={
 				open ? (
 					<Button size="sm" variant="ghost" icon={<RotateCw size={12} />} loading={loading} onClick={reload}>

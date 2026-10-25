@@ -26,3 +26,17 @@ jobs:
       - run: node scripts/build.mjs
       - name: Shell syntax
         run: bash -n deploy/install.sh && bash -n deploy/cross-seed-ui
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the Docker image
+        run: docker build -t cross-seed-ui:ci --build-arg VERSION=ci .
+      - name: Smoke test
+        run: |
+          docker run --rm cross-seed-ui:ci version
+          docker run -d --name hub -e CSUI_AGENT_URL=http://agent:2469 -e CSUI_AGENT_SECRET=0123456789abcdef0123456789abcdef cross-seed-ui:ci hub
+          for i in $(seq 1 20); do docker exec hub cross-seed-ui healthcheck && break; sleep 1; done
+          docker exec hub cross-seed-ui healthcheck
+          docker logs hub | grep -q "registered agent"

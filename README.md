@@ -52,10 +52,20 @@ Browser ──► HUB (web UI, login, statistics)                  port 2470
 - The **agent** runs next to each cross-seed daemon, as the same user (root with the community script). It is the
   only part that touches cross-seed's files, and it reads cross-seed's database **read-only**.
 - The **hub** is the web UI. It runs as its own unprivileged user in a sandboxed systemd service.
-- Nothing to build and no Docker: a release is about 200 KB of plain JavaScript that runs on Node.js ≥ 22.13
-  (the community script already installs Node.js 24).
+- In an LXC: nothing to build and no Docker needed, a release is about 200 KB of plain JavaScript that runs on
+  Node.js ≥ 22.13 (the community script already installs Node.js 24).
+- With Docker: one image (`ghcr.io/ckegels/cross-seed-ui`, amd64 + arm64) runs as web UI or agent; the agent restarts
+  the cross-seed container through a locked-down Docker socket proxy. See [docs/docker.md](docs/docker.md).
 
 ## Install
+
+Two ways, pick the one that matches how you run cross-seed:
+
+- **cross-seed directly in an LXC/VM with systemd** (e.g. the Proxmox community script): the installer below.
+- **cross-seed in Docker** (official `ghcr.io/cross-seed/cross-seed` image): see **[Docker](docs/docker.md)**, a
+  `docker-compose.yml` with cross-seed, the web UI and the agent.
+
+### LXC / VM with systemd
 
 Run the installer as root in the LXC. It asks what to install if you don't pass `--role`.
 
@@ -80,7 +90,7 @@ It prints a URL and a secret. In the web UI go to **UI settings → Instances �
 Then connect Prowlarr under **UI settings → Prowlarr**, and set up each instance on its own tabs:
 **Connections** (torrent clients, Sonarr, Radarr, notifications), **Indexers** and **cross-seed settings**.
 
-### Installer options
+#### Installer options
 
 | Option | Meaning |
 |---|---|

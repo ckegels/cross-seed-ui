@@ -22,6 +22,8 @@ export interface ServiceController {
 	recentOutput(lines: number, sinceMs?: number): Promise<string[]>;
 	/** run a command where cross-seed runs (docker: inside its container) */
 	exec?(cmd: string[], timeoutMs?: number): Promise<{ stdout: string; stderr: string; code: number }>;
+	/** cross-seed version without running it (docker: image label) */
+	crossSeedVersion?(): Promise<string | null>;
 }
 
 const UNIT_NAME = /^[A-Za-z0-9@._-]+$/;
@@ -201,7 +203,7 @@ export function createServiceController(s: AgentSettings): ServiceController {
 		case "systemd":
 			return new SystemdController(s.service.name);
 		case "docker":
-			return new DockerController(s.service.name, s.service.dockerHost);
+			return new DockerController(s.service.name, s.service.dockerHost, s.service.exec === true);
 		case "process":
 			if (!s.service.command?.length) throw new Error("service.command is required for manager=process");
 			return new ProcessController(s.service.command, s.service.env ?? {});

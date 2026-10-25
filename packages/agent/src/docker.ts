@@ -36,7 +36,8 @@ export class DockerApi {
 				{
 					...this.target,
 					method,
-					path: `/v1.41${path}`,
+					// unversioned: the engine uses its own current API version (Docker 29 rejects < 1.44)
+					path,
 					headers: { host: "docker", ...(payload ? { "content-type": "application/json", "content-length": payload.length } : {}) },
 					timeout: timeoutMs,
 				},
@@ -84,7 +85,7 @@ interface ContainerJson {
 	Id: string;
 	State: { Status: string; Running: boolean; Restarting: boolean; ExitCode: number; StartedAt: string; Pid: number };
 	RestartCount: number;
-	Config: { Image: string };
+	Config: { Image: string; Labels?: Record<string, string> };
 }
 
 export class DockerController implements ServiceController {
@@ -92,6 +93,7 @@ export class DockerController implements ServiceController {
 	constructor(
 		private container: string,
 		dockerHost: string | undefined,
+		private execEnabled = false,
 	) {
 		if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(container)) throw new Error(`Invalid container name: ${container}`);
 		this.api = new DockerApi(parseDockerHost(dockerHost));
@@ -156,14 +158,32 @@ export class DockerController implements ServiceController {
 				.split("\n")
 				.filter(Boolean)
 				.map(stripAnsi)
-				.sort();
+				.sort() // timestamps (RFC 3339) put stdout and stderr back in order
+				.map((l) => l.replace(/^\d{4}-\d\d-\d\dT[\d:.]+Z /, ""));
 		} catch {
 			return [];
 		}
 	}
 
+	/** cross-seed version from the image label ("version-6.13.9") or tag. */
+	async crossSeedVersion(): Promise<string | null> {
+		try {
+			const c = await this.api.json<ContainerJson>("GET", this.path("/json"), undefined, 10_000);
+			const label = c.Config.Labels?.["org.opencontainers.image.version"];
+			const v = /(\d+\.\d+\.\d+[\w.-]*)/.exec(label ?? "")?.[1] ?? /:v?(\d+\.\d+\.\d+[\w.-]*)$/.exec(c.Config.Image)?.[1];
+			return v ?? null;
+		} catch {
+			return null;
+		}
+	}
+
 	/** Run a command inside the cross-seed container (used for the cross-seed CLI). */
 	async exec(cmd: string[], timeoutMs = 120_000): Promise<{ stdout: string; stderr: string; code: number }> {
+		if (!this.execEnabled) {
+			throw new Error(
+				`running commands in the cross-seed container is disabled (set CSUI_DOCKER_EXEC=true and allow exec in the socket proxy), or run it yourself: docker exec ${this.container} ${cmd.join(" ")}`,
+			);
+		}
 		const created = await this.api.json<{ Id: string }>("POST", this.path("/exec"), {
 			Cmd: cmd,
 			AttachStdout: true,

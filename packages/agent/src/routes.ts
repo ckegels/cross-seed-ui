@@ -209,7 +209,17 @@ export function buildRouter(ctx: AgentContext): Router {
 	r.get("/v1/activity", async () => {
 		const st = await ctx.service.status();
 		const active = st.manager === "none" ? true : st.state === "active";
-		return ctx.tailer.activity.snapshot(active, (st.state === "activating" || st.state === "deactivating") && st.subState !== "auto-restart");
+		const starting = (st.state === "activating" || st.state === "deactivating") && st.subState !== "auto-restart";
+		let snap = ctx.tailer.activity.snapshot(active, starting);
+		if (snap.state === "starting" && !starting) {
+			// confirm with the API: a running daemon is not "starting"
+			const config = (await loadConfig().catch(() => null))?.config ?? {};
+			if ((await ctx.daemon.ping(config)).reachable) {
+				ctx.tailer.activity.markOnline();
+				snap = ctx.tailer.activity.snapshot(active, starting);
+			}
+		}
+		return snap;
 	});
 
 	// ------------------------------------------------------------- config

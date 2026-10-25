@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import type { CrossSeedConfig } from "@csui/shared";
 import { HttpError } from "@csui/shared/src/node/http.ts";
 import type { CrossSeedDb } from "./crossSeedDb.ts";
-import type { ServiceController } from "./service.ts";
+import { type ServiceController, stripAnsi } from "./service.ts";
 
 const execFileP = promisify(execFile);
 
@@ -48,7 +48,7 @@ export class CrossSeedDaemon {
 		private bin: string,
 		private crossSeedDir: string,
 		private db: CrossSeedDb,
-		private opts: { url?: string; exec?: ServiceController["exec"] } = {},
+		private opts: { url?: string; exec?: ServiceController["exec"]; version?: ServiceController["crossSeedVersion"] } = {},
 	) {}
 
 	private env() {
@@ -59,7 +59,8 @@ export class CrossSeedDaemon {
 		if (this.opts.exec) {
 			// docker: run the CLI inside the cross-seed container (same version, same /config)
 			try {
-				return await this.opts.exec(["cross-seed", ...args], timeoutMs);
+				const r = await this.opts.exec(["cross-seed", ...args], timeoutMs);
+				return { ...r, stdout: stripAnsi(r.stdout), stderr: stripAnsi(r.stderr) };
 			} catch (e) {
 				throw new HttpError(502, `Could not run cross-seed in its container: ${(e as Error).message}`, "exec_failed");
 			}
@@ -84,6 +85,11 @@ export class CrossSeedDaemon {
 	async version(): Promise<string | null> {
 		if (this.versionCache && Date.now() - this.versionCache.at < 5 * 60_000) return this.versionCache.v;
 		let v: string | null = null;
+		if (this.opts.version) {
+			v = await this.opts.version().catch(() => null);
+			this.versionCache = { v, at: Date.now() };
+			return v;
+		}
 		try {
 			const r = await this.runCli(["--version"], 20_000);
 			v = /(\d+\.\d+\.\d+[\w.-]*)/.exec(r.stdout)?.[1] ?? null;
@@ -104,6 +110,16 @@ export class CrossSeedDaemon {
 		const fromDb = this.db.apiKey();
 		if (fromDb) return fromDb;
 		if (this.cliApiKey) return this.cliApiKey;
+		if (this.opts.url) {
+			// remote/container cross-seed: any authenticated request makes it generate
+			// and store its key, which we then read from the database (read-only)
+			const base = this.baseUrl(config);
+			if (base) {
+				await fetch(`${base}/api/status`, { headers: { "x-api-key": "csui-key-bootstrap" }, signal: AbortSignal.timeout(5000) }).catch(() => null);
+				const generated = this.db.apiKey();
+				if (generated) return generated;
+			}
+		}
 		const r = await this.runCli(["api-key"], 30_000).catch(() => null);
 		const key = r?.stdout.trim().split("\n").at(-1)?.trim();
 		if (key && /^[a-f0-9]{24,}$/i.test(key)) this.cliApiKey = key;
