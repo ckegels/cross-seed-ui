@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+- Installer: fix the hub failing to start when a GitHub token was given (a restrictive umask leaked into the
+  install and made /opt/cross-seed-ui unreadable for the hub user). Release files are now always owned by root
+  and world-readable; secrets stay 0600/0640.
+
 ## 0.1.0
 
 First release.

@@ -4,7 +4,7 @@
 > project should be able to continue from this file alone. When you finish a step, update
 > "Current status", tick the checklist, and add a line to the "Change log" at the bottom.
 
-Last updated: 2026-10-25 (step 7: feature-complete v0.1.0, waiting for GitHub repo + first release)
+Last updated: 2026-10-25 (step 8: repo created, v0.1.1 released, ready to install on the real LXCs)
 
 ---
 
@@ -190,11 +190,16 @@ deploy/                ← install.sh, systemd units
 
 ## 5. Current status
 
-**Step 8 — publish (waiting on owner).** v0.1.0 is feature-complete, tested (unit + e2e in containers), README,
-CHANGELOG, CI and release workflows exist. **Not done yet:** the private GitHub repo `ckegels/cross-seed-ui` has not
-been created and nothing is pushed (outward-facing action, needs the owner's OK). After creating it: push `main`, then
-`git tag v0.1.0 && git push --tags` → the Release workflow publishes `cross-seed-ui-0.1.0.tar.gz` + `.sha256`, which
-`install.sh` downloads. Then install on the real LXCs (README "Install").
+**Step 9 — install on the real LXCs (owner).** Private repo https://github.com/ckegels/cross-seed-ui created
+(owner approved 2026-10-25), CI green on Node 22 + 24, releases v0.1.0 and **v0.1.1** published by the Release workflow.
+The README install command was tested for real against the private repo in a fresh community-script-like container.
+
+**Releasing:** bump `version` in package.json, add a `## x.y.z` section to CHANGELOG.md (used as release notes),
+commit, `git tag -a vX.Y.Z -m ... && git push origin main vX.Y.Z`. Wait for the Release workflow.
+
+**Bug found by testing the real GitHub install (fixed in 0.1.1):** `umask 077` set while writing the token leaked into
+the rest of install.sh → /opt/cross-seed-ui was 0700 → hub (user csui) got MODULE_NOT_FOUND. Now umask 022 globally,
+subshell umask for the token, `tar --no-same-owner`, release chowned root and chmod u=rwX,go=rX.
 
 #### Tests
 - `npm test` (node:test via tsx): shared (validator, redaction, durations, log parser, config renderer),
@@ -313,7 +318,7 @@ added to hub, wrong secret → 401, foreign IP → 403, update 0.1.0 → 0.1.1 w
 - [x] Install/update script + systemd units (release workflow: written, not yet run on GitHub)
 - [x] End-to-end test against a real cross-seed 6.13.9 daemon (local + systemd containers)
 - [x] README, CHANGELOG, CI + release workflows
-- [ ] Create private GitHub repo, push, tag v0.1.0 (needs owner OK)
+- [x] Create private GitHub repo, push, tag v0.1.0 / v0.1.1
 - [ ] Install on the real LXCs
 
 ---
@@ -333,3 +338,4 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Web UI written; mock Torznab + screenshots; fixed indexer URL matching, delayed last_run, searching state.
 - 2026-10-25 — Build/release script, installer, CLI, systemd units; e2e tested install/agent/update/rollback in containers.
 - 2026-10-25 — Mobile overflow fix, status hints, raw-path proxy signing, more tests (40), README/CHANGELOG/CI/release workflow.
+- 2026-10-25 — Private GitHub repo created, CI green, v0.1.0 released; real GitHub install test found the umask bug → v0.1.1.

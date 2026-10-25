@@ -30,6 +30,7 @@ UPDATE=0
 INTERACTIVE=1
 [[ -t 0 ]] || INTERACTIVE=0
 
+umask 022
 PREFIX=/opt/cross-seed-ui
 ETC=/etc/cross-seed-ui
 STATE=/var/lib/cross-seed-ui
@@ -183,15 +184,18 @@ fetch_release() { # -> sets REL_DIR
 	fi
 	local stage="$tmp/stage"
 	mkdir -p "$stage"
-	tar -xzf "$file" -C "$stage"
+	tar --no-same-owner -xzf "$file" -C "$stage"
 	[[ -f $stage/VERSION && -f $stage/agent.mjs && -f $stage/hub.mjs ]] || die "Not a cross-seed-ui release archive"
 	local ver
 	ver="$(tr -d '[:space:]' <"$stage/VERSION")"
 	REL_DIR="$PREFIX/releases/$ver"
 	rm -rf "$REL_DIR"
 	mkdir -p "$PREFIX/releases"
+	install -d -m 755 "$PREFIX" "$PREFIX/releases"
 	cp -a "$stage" "$REL_DIR"
-	chmod -R go-w "$REL_DIR"
+	# the hub runs as the unprivileged csui user: it must be able to read the release
+	chown -R root:root "$REL_DIR"
+	chmod -R u=rwX,go=rX "$REL_DIR"
 	chmod 755 "$REL_DIR/bin/cross-seed-ui" "$REL_DIR/deploy/install.sh"
 	ln -sfn "$REL_DIR" "$PREFIX/current"
 	ln -sfn "$PREFIX/current/bin/cross-seed-ui" /usr/local/bin/cross-seed-ui
@@ -217,7 +221,8 @@ write_agent_config() {
 	bin="$(command -v cross-seed || echo /usr/bin/cross-seed)"
 	local ips="[]"
 	if [[ ${#ALLOW_IPS[@]} -gt 0 ]]; then ips="[$(printf '"%s",' "${ALLOW_IPS[@]}" | sed 's/,$//')]"; fi
-	umask 077
+	touch "$f"
+	chmod 600 "$f"
 	cat >"$f" <<EOF
 {
   "listen": "$listen",
@@ -319,8 +324,7 @@ fi
 mkdir -p "$ETC" "$STATE"
 chmod 755 "$ETC"
 if [[ -n $TOKEN ]]; then
-	umask 077
-	printf '%s' "$TOKEN" >"$ETC/github-token"
+	(umask 077 && printf '%s' "$TOKEN" >"$ETC/github-token")
 	chmod 600 "$ETC/github-token"
 fi
 
