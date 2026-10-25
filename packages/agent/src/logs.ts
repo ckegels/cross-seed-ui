@@ -141,7 +141,11 @@ export class ActivityTracker {
 		else if (this.running.has("cleanup")) state = "cleanup";
 		else if (this.running.has("updateIndexerCaps")) state = "caps";
 		// a webhook/announce triggered search shows progress without a job
-		if (state === "idle" && this.progress && Date.now() - this.progress.ts < 5 * 60_000) state = "searching";
+		if (state === "idle" && this.progress) {
+			const age = Date.now() - this.progress.ts;
+			const finished = this.progress.index >= this.progress.total;
+			if (age < (finished ? 30_000 : 5 * 60_000)) state = "searching";
+		}
 		return {
 			state,
 			runningJobs,

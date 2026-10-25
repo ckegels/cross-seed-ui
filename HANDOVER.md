@@ -190,7 +190,34 @@ deploy/                ← install.sh, systemd units
 
 ## 5. Current status
 
-**Step 5 — web UI (in progress).** Shared core, agent and hub are done and smoke-tested.
+**Step 6 — packaging, install/update scripts, release (in progress).** Web UI is functional and was checked
+with screenshots against a real cross-seed 6.13.9 + mock indexers.
+
+#### Web (packages/web) — done (first version)
+- React 19 + Vite 8 + Tailwind 4, no router/chart libs (own `router.tsx`, own SVG charts in `charts/index.tsx`
+  following the dataviz rules: ≤24px columns, 4px rounded data-ends, 2px gaps, hairline grid, legend ≥2 series,
+  hover tooltips, fixed categorical order; instance color = `SERIES[(id-1)%8]`, status colors only for status).
+- Theme tokens in `styles.css` (light + dark, toggle stored in localStorage `csui.theme`).
+- `api.ts` adds `x-csui: 1`; `sudo_required` opens `ui/SudoDialog.tsx` and retries.
+- Pages: Login/Setup, Overview (KPI tiles, instance cards with live activity + quick RSS/search, stacked daily charts,
+  top trackers, recent matches), Instance (tabs: Dashboard, Activity [live SSE log + log files + timeline], Indexers
+  [health table, Prowlarr policy/preview/apply, raw torznab list], Connections [clients/arr/notifications/daemon with Test],
+  Settings [all options from metadata, blocklist editor, preview file, raw editor], History [cross-seeds + all decisions],
+  Library [client torrents, search-now], Maintenance [service, CLI commands, backups, journal]),
+  Indexers (Prowlarr overview), Settings (account/2FA/sessions, instances, Prowlarr, users, audit, about/updates).
+- Config editing: `pages/instance/configDraft.tsx` (one draft per instance, client-side validation with the shared
+  validator, SaveBar → review modal → PUT with restart + auto rollback → restart verdict).
+
+#### Dev data
+- `scripts/mock-torznab.ts <dataDir> [port]` = fake Torznab with 3 trackers; real cross-seed produces real matches.
+- Sparse fake movies in `csdev/data/movies` (truncate). dev agent runs cross-seed with `DEV=1` (allows delay < 30).
+- Screenshots: puppeteer-core + Firefox in scratchpad `shots/shoot.mjs` (snap firefox: use
+  `/snap/firefox/current/usr/lib/firefox/firefox` directly, the /usr/bin wrapper can't use /tmp profiles).
+
+#### Gotchas learned
+- cross-seed's `indexer.url` has **no apikey** (separate column) → compare origin+path (`sameIndexerUrl` in shared).
+- After an early job run cross-seed stores `job_log.last_run = now + cadence` → real last run = stored − cadence.
+- Running a job early is refused (409) until half a cadence passed; the UI shows cross-seed's message.
 
 #### Hub (packages/hub) — done
 - `settings.ts` hub.json (port **2470**, stateDir /var/lib/cross-seed-ui/hub, webDir, trustProxy, secureCookies, optional TLS).
@@ -238,7 +265,7 @@ deploy/                ← install.sh, systemd units
 - [x] Shared: option metadata + validator + HMAC + log parser (+ tests, 20 passing)
 - [x] Agent: config read/write/backup/rollback, DB stats, logs + SSE, service control, job triggers, connection tests
 - [x] Hub: setup/login/sessions/2FA/rate-limit, instances, proxy, Prowlarr, audit log
-- [ ] Web: login, overview, instance dashboard, activity/logs, indexers, connections, settings, history, maintenance
+- [x] Web: login, overview, instance dashboard, activity/logs, indexers, connections, settings, history, maintenance
 - [ ] Install/update script + systemd units + release workflow
 - [ ] End-to-end test against a real cross-seed 6.13.9 daemon (local)
 - [ ] README
@@ -257,3 +284,4 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Shared core written + tests (validator port, redaction w/ same-host rule, log parser, config renderer, HMAC, router).
 - 2026-10-25 — Agent written and tested against real cross-seed 6.13.9 (save/restart/rollback verified).
 - 2026-10-25 — Hub written; smoke-tested setup token, login, CSRF, instance add, overview, proxy whitelist, headers.
+- 2026-10-25 — Web UI written; mock Torznab + screenshots; fixed indexer URL matching, delayed last_run, searching state.

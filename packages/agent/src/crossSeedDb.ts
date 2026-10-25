@@ -6,7 +6,7 @@
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { redactText, type DecisionRow, type IndexerInfo, type LibraryRow, type Paged } from "@csui/shared";
+import { redactText, sameIndexerUrl, type DecisionRow, type IndexerInfo, type LibraryRow, type Paged } from "@csui/shared";
 
 export const MATCH_DECISIONS = ["MATCH", "MATCH_SIZE_ONLY", "MATCH_PARTIAL"];
 
@@ -357,10 +357,4 @@ export class CrossSeedDb {
 
 function escapeLike(s: string): string {
 	return s.replace(/[\\%_]/g, (c) => `\\${c}`);
-}
-
-/** cross-seed stores the configured URL; compare ignoring a trailing slash */
-function sameIndexerUrl(a: string | undefined, b: string | undefined): boolean {
-	if (!a || !b) return false;
-	return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
 }

@@ -198,3 +198,29 @@ export function redactText(text: string): string {
 		.replace(/(https?:\/\/[^:/\s@]*:)[^@\s/]+@/gi, `$1${REDACTED}@`)
 		.replace(new RegExp(`([?&](?:${SECRET_PARAM_NAMES})=)[^&\\s"']+`, "gi"), `$1${REDACTED}`);
 }
+
+/** Display helpers: show hidden secrets as dots in inputs, map them back on edit. */
+export const MASK = "••••••••";
+export function maskSecret(v: string): string {
+	return v.split(REDACTED).join(MASK);
+}
+export function unmaskSecret(v: string): string {
+	return v.split(MASK).join(REDACTED);
+}
+
+/**
+ * cross-seed stores indexer.url without the apikey (it has its own column),
+ * so compare origin + path only, ignoring a trailing slash.
+ */
+export function sameIndexerUrl(a: string | undefined, b: string | undefined): boolean {
+	if (!a || !b) return false;
+	const norm = (u: string) => {
+		try {
+			const x = new URL(u);
+			return `${x.origin}${x.pathname.replace(/\/+$/, "")}`;
+		} catch {
+			return u.replace(/[?#].*$/, "").replace(/\/+$/, "");
+		}
+	};
+	return norm(a) === norm(b);
+}

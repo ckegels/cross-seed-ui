@@ -111,14 +111,18 @@ export function buildRouter(ctx: AgentContext): Router {
 			{ name: "inject", enabled: effectiveValue(config, "action") === "inject", cadence: 3600_000 },
 			{ name: "cleanup", enabled: true, cadence: DAY },
 		];
+		const now = Date.now();
 		return defs.map((d) => {
-			const lastRun = last[d.name] ?? null;
+			const stored = last[d.name] ?? null;
+			const cadence = d.cadence && Number.isFinite(d.cadence) ? d.cadence : null;
+			// after an early run cross-seed stores last_run = now + cadence ("delay next run")
+			const lastRun = stored !== null && cadence && stored > now ? stored - cadence : stored;
 			return {
 				name: d.name,
 				enabled: d.enabled,
-				cadenceMs: d.cadence && Number.isFinite(d.cadence) ? d.cadence : null,
+				cadenceMs: cadence,
 				lastRun,
-				nextRun: d.enabled && d.cadence ? (lastRun ?? Date.now()) + d.cadence : null,
+				nextRun: d.enabled && cadence ? (stored ?? now) + cadence : null,
 				running: running.has(d.name),
 				runningSince: running.get(d.name) ?? null,
 			};

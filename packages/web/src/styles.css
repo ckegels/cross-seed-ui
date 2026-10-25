@@ -1,0 +1,191 @@
+@import "tailwindcss";
+
+/* Theme tokens. Light and dark are both designed (not an automatic flip).
+   Chart ink/surfaces follow the dataviz reference palette. */
+:root {
+	color-scheme: light;
+	--bg: #f6f6f4;
+	--surface: #fcfcfb;
+	--surface-2: #f1f1ee;
+	--surface-3: #e8e7e2;
+	--border: rgba(11, 11, 11, 0.1);
+	--border-strong: rgba(11, 11, 11, 0.18);
+	--text: #0b0b0b;
+	--text-2: #52514e;
+	--text-3: #898781;
+	--grid: #e1e0d9;
+	--axis: #c3c2b7;
+	--accent: #2a78d6;
+	--accent-ink: #ffffff;
+	--accent-soft: rgba(42, 120, 214, 0.1);
+	--good: #0ca30c;
+	--good-text: #006300;
+	--warning: #fab219;
+	--warning-text: #8a5a00;
+	--serious: #ec835a;
+	--critical: #d03b3b;
+	--critical-soft: rgba(208, 59, 59, 0.1);
+	--series-1: #2a78d6;
+	--series-2: #eb6834;
+	--series-3: #1baf7a;
+	--series-4: #eda100;
+	--series-5: #e87ba4;
+	--series-6: #008300;
+	--series-7: #6250d6;
+	--series-8: #e34948;
+	--shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+		--bg: #0d0d0d;
+		--surface: #1a1a19;
+		--surface-2: #222220;
+		--surface-3: #2c2c2a;
+		--border: rgba(255, 255, 255, 0.1);
+		--border-strong: rgba(255, 255, 255, 0.18);
+		--text: #f0efec;
+		--text-2: #c3c2b7;
+		--text-3: #898781;
+		--grid: #2c2c2a;
+		--axis: #383835;
+		--accent: #3987e5;
+		--accent-soft: rgba(57, 135, 229, 0.16);
+		--good-text: #0ca30c;
+		--warning-text: #fab219;
+		--critical-soft: rgba(208, 59, 59, 0.18);
+		--series-1: #3987e5;
+		--series-2: #d95926;
+		--series-3: #199e70;
+		--series-4: #c98500;
+		--series-5: #d55181;
+		--series-6: #008300;
+		--series-7: #9085e9;
+		--series-8: #e66767;
+		--shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+	}
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--bg: #0d0d0d;
+	--surface: #1a1a19;
+	--surface-2: #222220;
+	--surface-3: #2c2c2a;
+	--border: rgba(255, 255, 255, 0.1);
+	--border-strong: rgba(255, 255, 255, 0.18);
+	--text: #f0efec;
+	--text-2: #c3c2b7;
+	--text-3: #898781;
+	--grid: #2c2c2a;
+	--axis: #383835;
+	--accent: #3987e5;
+	--accent-soft: rgba(57, 135, 229, 0.16);
+	--good-text: #0ca30c;
+	--warning-text: #fab219;
+	--critical-soft: rgba(208, 59, 59, 0.18);
+	--series-1: #3987e5;
+	--series-2: #d95926;
+	--series-3: #199e70;
+	--series-4: #c98500;
+	--series-5: #d55181;
+	--series-6: #008300;
+	--series-7: #9085e9;
+	--series-8: #e66767;
+	--shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+@theme inline {
+	--color-bg: var(--bg);
+	--color-surface: var(--surface);
+	--color-surface-2: var(--surface-2);
+	--color-surface-3: var(--surface-3);
+	--color-line: var(--border);
+	--color-line-strong: var(--border-strong);
+	--color-ink: var(--text);
+	--color-ink-2: var(--text-2);
+	--color-ink-3: var(--text-3);
+	--color-accent: var(--accent);
+	--color-accent-soft: var(--accent-soft);
+	--color-good: var(--good);
+	--color-good-text: var(--good-text);
+	--color-warning: var(--warning);
+	--color-warning-text: var(--warning-text);
+	--color-serious: var(--serious);
+	--color-critical: var(--critical);
+	--color-critical-soft: var(--critical-soft);
+	--font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+	--font-mono: ui-monospace, "SF Mono", "Cascadia Code", Menlo, monospace;
+}
+
+html,
+body,
+#root {
+	height: 100%;
+}
+
+body {
+	background: var(--bg);
+	color: var(--text);
+	font-family: var(--font-sans);
+	font-size: 14px;
+	line-height: 1.45;
+	-webkit-font-smoothing: antialiased;
+}
+
+.tabular {
+	font-variant-numeric: tabular-nums;
+}
+
+.card {
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: 12px;
+	box-shadow: var(--shadow);
+}
+
+.focus-ring:focus-visible,
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 1px;
+}
+
+.log-line {
+	font-family: var(--font-mono);
+	font-size: 12px;
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+::selection {
+	background: var(--accent-soft);
+}
+
+/* thin scrollbars */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--surface-3) transparent;
+}
+
+@keyframes csui-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.35;
+	}
+}
+.pulse {
+	animation: csui-pulse 1.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.pulse {
+		animation: none;
+	}
+}
