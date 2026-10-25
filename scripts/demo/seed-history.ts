@@ -8,6 +8,7 @@
  *
  *   node --import tsx scripts/demo/seed-history.ts <crossSeedDir> <a|b> <mockBaseUrl>
  */
+import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -71,6 +72,31 @@ const insDecision = db.prepare(
 );
 const REJECT_DECISION = { size: "SIZE_MISMATCH", group: "RELEASE_GROUP_MISMATCH" } as const;
 
+// cross-seed's cleanup job deletes decisions whose .torrent is missing from torrent_cache,
+// so every seeded decision gets a (small, valid) cached torrent file
+const cacheDir = join(dir, "torrent_cache");
+mkdirSync(cacheDir, { recursive: true });
+function bencode(v: unknown): Buffer {
+	if (typeof v === "number") return Buffer.from(`i${Math.floor(v)}e`);
+	if (typeof v === "string") return Buffer.concat([Buffer.from(`${Buffer.byteLength(v)}:`), Buffer.from(v)]);
+	if (Buffer.isBuffer(v)) return Buffer.concat([Buffer.from(`${v.length}:`), v]);
+	if (Array.isArray(v)) return Buffer.concat([Buffer.from("l"), ...v.map(bencode), Buffer.from("e")]);
+	const o = v as Record<string, unknown>;
+	return Buffer.concat([Buffer.from("d"), ...Object.keys(o).sort().flatMap((k) => [bencode(k), bencode(o[k])]), Buffer.from("e")]);
+}
+const cached = (l: (typeof LISTINGS)[number]) => {
+	const file = bencode({
+		announce: `https://${l.tracker.host}/announce/x`,
+		info: { name: l.name, length: l.size, "piece length": 16777216, pieces: createHash("sha1").update(l.guid).digest(), private: 1 },
+	});
+	writeFileSync(join(cacheDir, `${sha1(l.guid)}.cached.torrent`), file);
+};
+const insDecisionRaw = insDecision;
+const recordDecision = (sid: number, l: (typeof LISTINGS)[number], decision: string, t: number) => {
+	insDecisionRaw.run(sid, l.guid, sha1(l.guid), decision, t, t);
+	cached(l);
+};
+
 // ---------------------------------------------------------------- 13 days of activity
 const now = Date.now();
 const midnight = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
@@ -97,7 +123,7 @@ for (let d = 13; d >= 1; d--) {
 				injectedNames.add(`${l.release.key}${l.tracker.id}`);
 				log(t + 4000, "info", "rss", `Found ${l.name} on ${prowlarrName(l.tracker)} by MATCH from torrentClient (${l.release.name} [${short(l.release.hash)}@${client}]) - injected`);
 				const sid = searcheeId(l.release.name);
-				insDecision.run(sid, l.guid, sha1(l.guid), "MATCH", t + 4000, t + 4000);
+				recordDecision(sid, l, "MATCH", t + 4000);
 			}
 		}
 		log(t + 6000, "info", "rss", `RSS scan complete - checked ${n} new candidates since ${human(t - 30 * 60_000)}`);
@@ -143,9 +169,9 @@ for (let d = 13; d >= 1; d--) {
 				found++;
 				log(t + 3000, result.startsWith("failed") ? "error" : "info", "search", `Found ${l.name} on ${prowlarrName(l.tracker)} by MATCH from torrentClient (${rel.name} [${short(rel.hash)}@${client}]) - ${result}`);
 				if (result.startsWith("failed")) log(t + 3010, "error", "qbittorrent", `[qbittorrent@127.0.0.1] Injection failed for ${l.name}: Failed to retrieve torrent after adding`);
-				insDecision.run(sid, l.guid, sha1(l.guid), "MATCH", t + 3000, t + 3000);
+				recordDecision(sid, l, "MATCH", t + 3000);
 			} else {
-				insDecision.run(sid, l.guid, sha1(l.guid), REJECT_DECISION[l.kind], t + 2500, t + 2500);
+				recordDecision(sid, l, REJECT_DECISION[l.kind], t + 2500);
 				log(t + 2500, "verbose", "decide", `${rel.name} - no match for ${prowlarrName(l.tracker)} torrent ${l.name} - ${REJECT_DECISION[l.kind]}`);
 			}
 		}
@@ -167,7 +193,7 @@ for (let d = 13; d >= 1; d--) {
 // rejections recorded for the rest of the library too, so the decision chart is meaningful
 for (const l of rejects) {
 	const t = now - Math.floor(R() * 13 * DAY);
-	insDecision.run(searcheeId(l.release.name), l.guid, sha1(l.guid), REJECT_DECISION[l.kind as "size" | "group"], t, t);
+	recordDecision(searcheeId(l.release.name), l, REJECT_DECISION[l.kind as "size" | "group"], t);
 }
 
 const yesterdaySearch = midnight - DAY + 3 * 3_600_000;

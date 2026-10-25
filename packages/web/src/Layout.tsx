@@ -141,7 +141,7 @@ export function Layout({ children }: { children: ReactNode }) {
 			</div>
 			<div className="mt-auto space-y-0.5">
 				<NavItem to="/settings" icon={<Settings size={16} />} active={path.startsWith("/settings")} onNavigate={close}>
-					Settings
+					UI settings
 				</NavItem>
 				<div className="flex items-center gap-1 px-1 pt-2 border-t border-line">
 					<div className="flex-1 min-w-0 px-1.5">

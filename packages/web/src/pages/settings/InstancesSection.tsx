@@ -122,10 +122,10 @@ export function InstancesSection() {
 				)}
 			</Card>
 			<Card title="Installing the agent" subtitle="Run this inside each cross-seed LXC (as root)">
-				<pre className="log-line rounded-lg bg-surface-2 p-3">{`bash install.sh --role agent
+				<pre className="log-line rounded-lg bg-surface-2 p-3 overflow-x-auto">{`curl -fsSL https://raw.githubusercontent.com/ckegels/cross-seed-ui/main/deploy/install.sh | bash -s -- --role agent --allow-ip <this-web-ui-ip>
 # it prints the agent URL and secret to paste here`}</pre>
 				<p className="mt-2 text-xs text-ink-3 flex items-center gap-1.5">
-					<Server size={12} /> See the README for downloading install.sh from the private repo and for updating.
+					<Server size={12} /> More options and updating: see the README on GitHub.
 				</p>
 			</Card>
 			<Modal open={!!editing} onClose={() => setEditing(null)} title={editing === "new" ? "Add instance" : "Edit instance"}>

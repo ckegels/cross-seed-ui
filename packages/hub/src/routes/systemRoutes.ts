@@ -30,7 +30,7 @@ async function latestRelease(ctx: HubContext) {
 				at: Date.now(),
 				latest: null,
 				url: null,
-				error: res.status === 404 ? "No release found (private repo needs a token in the github-token file)" : `GitHub HTTP ${res.status}`,
+				error: res.status === 404 ? "No release found (for a private fork put a token in the github-token file)" : `GitHub HTTP ${res.status}`,
 			};
 		} else {
 			const j = (await res.json()) as { tag_name: string; html_url: string };

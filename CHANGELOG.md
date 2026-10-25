@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+First public release.
+
+- MIT license, public README with screenshots, install straight from GitHub without a token.
+- Clearer navigation: the sidebar's "UI settings" (account, users, instances, Prowlarr) vs each instance's own
+  Connections / Indexers / cross-seed settings tabs, with direct links between them.
+- Demo seeds cross-seed's torrent cache, so its cleanup job keeps the demo history.
+- Test tools in `scripts/test/` (simulated community-script LXC, screenshot script).
+
 ## 0.1.2
 
 - Fix: the Prowlarr panel on an instance's Indexers tab could not load or save its sync settings (the route was

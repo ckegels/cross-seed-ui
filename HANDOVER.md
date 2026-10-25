@@ -11,21 +11,21 @@ Last updated: 2026-10-25 (step 8: repo created, v0.1.1 released, ready to instal
 ## 1. What this project is
 
 A secure web UI to **manage, monitor and get statistics** for
-[cross-seed](https://www.cross-seed.org) **v6** daemons. The owner runs **two cross-seed
+[cross-seed](https://www.cross-seed.org) **v6** daemons. The reference setup is **two cross-seed
 instances on Proxmox, each in its own LXC**, installed with the Proxmox community script.
 
-Goals (from the owner):
+Goals:
 
 - Change **all** config.js settings from a UI (indexers, Sonarr/Radarr, torrent clients,
   matching, linking, scheduling, blocklist, notifications ...).
-- Add and delete indexers (owner uses **Prowlarr**, so sync from Prowlarr).
+- Add and delete indexers (with **Prowlarr** sync).
 - See **what cross-seed is doing** (live activity, logs) and **statistics**, as clean as possible.
 - **Secure login**.
 - **Easy install and update** on the LXCs.
 - The repo is **private** for now.
 - Keep this handover file detailed and updated at every step.
 
-### Owner environment (confirmed 2026-10-25)
+### Reference environment
 
 | Item | Value |
 |---|---|
@@ -35,7 +35,7 @@ Goals (from the owner):
 | Config dir | `/root/.cross-seed/` (`config.js`, `cross-seed.db`, `logs/`, `torrent_cache/`, `cross-seeds/`) |
 | Indexers | Prowlarr |
 | Topology chosen | **One dashboard (hub) for both instances**, small **agent** in each LXC |
-| GitHub | user `ckegels`; planned private repo `ckegels/cross-seed-ui` (not created yet — ask before creating) |
+| GitHub | https://github.com/ckegels/cross-seed-ui (public) |
 
 ---
 
@@ -190,8 +190,8 @@ deploy/                ← install.sh, systemd units
 
 ## 5. Current status
 
-**Step 9 — install on the real LXCs (owner).** Private repo https://github.com/ckegels/cross-seed-ui created
-(owner approved 2026-10-25), CI green on Node 22 + 24, releases v0.1.0 and **v0.1.1** published by the Release workflow.
+**Step 10 — public; install on real LXCs.** Repo https://github.com/ckegels/cross-seed-ui (public since 2026-10-25),
+CI green on Node 22 + 24, releases published by the Release workflow.
 The README install command was tested for real against the private repo in a fresh community-script-like container.
 
 **Releasing:** bump `version` in package.json, add a `## x.y.z` section to CHANGELOG.md (used as release notes),
@@ -222,7 +222,7 @@ real injections, in-memory), Prowlarr API + 6 fictional private trackers (Torzna
 "fresh uploads" every 7 min for RSS, Lumen returns 429 on even hours), Sonarr/Radarr (`/api` ping must return
 `{current}`), notification sink. `catalog.ts` = deterministic library (87 + 46 torrents, sparse files via `make-files.ts`),
 `seed-history.ts` = 13 days of logs in cross-seed's format + DB rows (indexers, searchees, timestamps, decisions, job_log),
-`write-config.ts` = realistic config.js. Used for the owner preview before going public and for README screenshots.
+`write-config.ts` = realistic config.js. Used for previews and for the README screenshots (`docs/screenshots/`).
 
 **Bug found with the demo (fixed):** `/api/instances/:id/prowlarr` was shadowed by the proxy wildcard
 `/api/instances/:id/*` (registered first) → per-instance Prowlarr panel could never load/save. Router now always
@@ -250,7 +250,7 @@ prefers exact routes over wildcard routes (test added).
 - Layout on the LXC: `/opt/cross-seed-ui`, `/etc/cross-seed-ui/{agent,hub}.json, install.conf, github-token`,
   `/var/lib/cross-seed-ui/{agent,hub}` (agent: agent.db + backups/, hub: hub.db, secret.key, setup-token).
 
-#### End-to-end test (docker, `scratchpad/lxc-sim/Dockerfile`)
+#### End-to-end test (docker, `scripts/test/lxc-sim/Dockerfile`)
 Debian 12 + systemd + Node 24 + `npm i -g cross-seed@6.13.9` + root `cross-seed.service` (= community script).
 Verified: install role both, setup token, hub overview, validator errors == cross-seed's own errors for the default
 gen-config, save+restart via systemd (1.1 s, verified), audit entry, second container role agent with `--allow-ip`,
@@ -274,7 +274,7 @@ added to hub, wrong secret → 401, foreign IP → 403, update 0.1.0 → 0.1.1 w
 #### Dev data
 - `scripts/mock-torznab.ts <dataDir> [port]` = fake Torznab with 3 trackers; real cross-seed produces real matches.
 - Sparse fake movies in `csdev/data/movies` (truncate). dev agent runs cross-seed with `DEV=1` (allows delay < 30).
-- Screenshots: puppeteer-core + Firefox in scratchpad `shots/shoot.mjs` (snap firefox: use
+- Screenshots: `scripts/test/screenshots.mjs` (puppeteer-core + Firefox, not a dependency; snap firefox: use
   `/snap/firefox/current/usr/lib/firefox/firefox` directly, the /usr/bin wrapper can't use /tmp profiles).
 
 #### Gotchas learned
@@ -315,7 +315,7 @@ added to hub, wrong secret → 401, foreign IP → 403, update 0.1.0 → 0.1.1 w
   unsigned request → 401.
 
 #### Dev environment (local, not in git)
-- cross-seed 6.13.9 installed in the scratchpad dir `csdev/` with a dataDirs-only config (action save, no clients).
+- Simplest: `scripts/demo/demo.sh start` (everything below is the older manual setup).
 - `dev/agent.json` (gitignored) runs the agent with `service.manager = "process"` so it spawns `cross-seed daemon` itself.
 - `scripts/dev.sh start|stop|restart agent|hub` and `node --import tsx scripts/agent-call.ts dev/agent.json GET /v1/info`.
 
@@ -323,7 +323,7 @@ added to hub, wrong secret → 401, foreign IP → 403, update 0.1.0 → 0.1.1 w
 
 - [x] Research cross-seed v6 internals (config, API, DB, logs, jobs, validation)
 - [x] Survey existing UIs
-- [x] Confirm owner environment + topology
+- [x] Confirm reference environment + topology
 - [x] Monorepo scaffolding, TypeScript (build scripts still TODO)
 - [x] Shared: option metadata + validator + HMAC + log parser (+ tests, 20 passing)
 - [x] Agent: config read/write/backup/rollback, DB stats, logs + SSE, service control, job triggers, connection tests
@@ -353,5 +353,6 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Build/release script, installer, CLI, systemd units; e2e tested install/agent/update/rollback in containers.
 - 2026-10-25 — Mobile overflow fix, status hints, raw-path proxy signing, more tests (40), README/CHANGELOG/CI/release workflow.
 - 2026-10-25 — Private GitHub repo created, CI green, v0.1.0 released; real GitHub install test found the umask bug → v0.1.1.
-- 2026-10-25 — Demo kit (scripts/demo) for the owner preview; found + fixed router wildcard shadowing the Prowlarr policy routes.
-- Next: owner reviews the demo → then (if approved) generic README for public, LICENSE choice, rewrite commit emails, make repo public.
+- 2026-10-25 — Demo kit (scripts/demo); found + fixed router wildcard shadowing the Prowlarr policy routes (v0.1.2).
+- 2026-10-25 — Going public: public README with screenshots, "UI settings" vs per-instance wording, test tools in scripts/test/,
+  commit emails rewritten to the GitHub noreply address, old tags/releases/runs removed, fresh release.

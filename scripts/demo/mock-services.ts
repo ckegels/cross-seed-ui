@@ -225,7 +225,7 @@ createServer(async (req, res) => {
 				}
 				case "torrents/add": {
 					const raw = await body(req);
-					const form = await new Request("http://x", { method: "POST", headers: { "content-type": String(req.headers["content-type"]) }, body: raw }).formData();
+					const form = await new Request("http://x", { method: "POST", headers: { "content-type": String(req.headers["content-type"]) }, body: new Uint8Array(raw) }).formData();
 					const file = form.get("torrents") as File;
 					const { value, infoHash } = bdecode(Buffer.from(await file.arrayBuffer()));
 					const info = value.info as Record<string, unknown>;

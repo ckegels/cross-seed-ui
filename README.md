@@ -1,139 +1,174 @@
 # cross-seed-ui
 
 A secure web UI to **configure, monitor and get statistics** for one or more
-[cross-seed](https://www.cross-seed.org) **v6** daemons, built for Proxmox LXCs installed with the
-community script.
+[cross-seed](https://www.cross-seed.org) **v6** daemons. Made for Proxmox LXCs set up with the
+[community script](https://community-scripts.org/scripts/cross-seed), and works on any Debian/Ubuntu machine that runs
+cross-seed with systemd.
 
-- Edit **every** `config.js` option in forms (with the same validation rules as cross-seed), or the raw file.
-- Every save is **backed up**, cross-seed is **restarted and verified**, and if it refuses the new config the
-  previous one is **restored automatically**.
-- **Indexers:** health (rate limits, failures, capabilities, usage), **Prowlarr sync** (pick indexers, by Prowlarr tag,
-  or all, optional auto-sync), raw Torznab URLs, connection tests.
-- **Connections:** torrent clients, Sonarr, Radarr, notification webhooks, each with a **Test** button that runs from
-  the cross-seed LXC itself.
-- **Live activity:** what cross-seed is doing right now (search progress with ETA, running jobs), live log stream,
-  log files, timeline.
-- **Statistics:** cross-seeds added per day, searches, matches, decisions, trackers, library, disk space, across all
-  instances.
-- **History** of every match and every decision, **library** browser with "search now", **maintenance**
-  (start/stop/restart, cross-seed CLI maintenance commands, journal).
-- **Security:** login with optional 2FA, password re-confirmation for sensitive actions, admin/viewer roles, audit
-  log, secrets never sent to the browser unless revealed.
+![Overview of two cross-seed instances](docs/screenshots/overview.png)
 
-> Targets cross-seed **v6** (tested with 6.13.9). cross-seed v7 ships its own web UI and stores its config in its
-> database, so it is not supported.
+> Independent project, not affiliated with the cross-seed team. Targets cross-seed **v6** (tested with 6.13.9).
+> cross-seed v7 comes with its own web UI and keeps its settings in its database, so it is not supported.
+
+## Features
+
+- **Every `config.js` option in forms**, checked with the same rules cross-seed uses, so you see a problem
+  next to the option instead of in a crashed service. A raw editor is there too.
+- **Safe changes:** every save keeps a backup, restarts cross-seed and checks that it started. If cross-seed refuses
+  the new config, the previous one is **restored automatically** and you see cross-seed's own error message.
+- **Several instances in one place:** one web UI for all your cross-seed LXCs, each with its own settings,
+  indexers, clients and Sonarr/Radarr.
+- **Indexers:** health from cross-seed's database (rate limits, failures, capabilities, how much each one is used),
+  **Prowlarr sync** per instance (pick indexers, by Prowlarr tag, or all, optional auto-sync), plain Torznab URLs.
+- **Connections:** torrent clients (qBittorrent, Transmission, Deluge, rTorrent), Sonarr, Radarr and notification
+  webhooks, each with a **Test** button that runs from the cross-seed machine itself.
+- **What it is doing right now:** search progress with time left, running jobs, a live log, the log files and a
+  timeline of searches, scans and errors.
+- **Statistics:** cross-seeds added per day, searches, matches, why candidates were rejected, top trackers,
+  library size and disk space, for each instance and combined.
+- **History** of every match and decision, a **library** browser with "search now", and **maintenance**:
+  start/stop/restart, cross-seed's own cleanup commands, service output and config backups.
+- **Secure by default:** login with optional two-factor codes, password re-check for sensitive actions,
+  admin and read-only roles, audit log, secrets hidden from the browser, signed traffic between the parts.
+- **Light and dark mode**, works on a phone.
+
+| | |
+|---|---|
+| ![Instance dashboard](docs/screenshots/dashboard.png) | ![Indexers and Prowlarr sync](docs/screenshots/indexers.png) |
+| ![Torrent clients, Sonarr, Radarr](docs/screenshots/connections.png) | ![cross-seed settings](docs/screenshots/settings.png) |
+| ![Live activity](docs/screenshots/activity.png) | ![Dark mode](docs/screenshots/overview-dark.png) |
 
 ## How it works
 
 ```
-Browser ──► HUB (web UI, login, statistics)          one LXC, port 2470
+Browser ──► HUB (web UI, login, statistics)                  port 2470
               │  every request signed (HMAC-SHA256)
      ┌────────┴─────────┐
      ▼                  ▼
-  AGENT (LXC A)      AGENT (LXC B)                    port 2469, next to each cross-seed
-  config.js, logs, cross-seed.db (read-only), systemctl restart cross-seed
+  AGENT              AGENT                                   port 2469, next to each cross-seed
+  config.js, logs, cross-seed.db (read-only), restarts cross-seed
 ```
 
-- The **agent** runs as root next to cross-seed (the community script runs cross-seed as root in
-  `/root/.cross-seed`). It is the only part that touches cross-seed's files.
-- The **hub** is the web UI. It runs as an unprivileged user (`csui`) in a sandboxed systemd unit.
-- No Docker and no build step on the LXC: a release is ~200 KB of plain JavaScript that runs on the Node.js the
-  community script already installed (Node ≥ 22.13 required).
+- The **agent** runs next to each cross-seed daemon, as the same user (root with the community script). It is the
+  only part that touches cross-seed's files, and it reads cross-seed's database **read-only**.
+- The **hub** is the web UI. It runs as its own unprivileged user in a sandboxed systemd service.
+- Nothing to build and no Docker: a release is about 200 KB of plain JavaScript that runs on Node.js ≥ 22.13
+  (the community script already installs Node.js 24).
 
-## Install (your setup: two cross-seed LXCs)
+## Install
 
-The repository is private, so the installer needs a GitHub token:
-create a **fine-grained personal access token** (GitHub → Settings → Developer settings → Fine-grained tokens) with
-access to only this repository and the permission **Contents: Read-only**. It is stored in
-`/etc/cross-seed-ui/github-token` (readable by root and the hub user) and reused for updates.
+Run the installer as root in the LXC. It asks what to install if you don't pass `--role`.
 
-**LXC A** (cross-seed + the web UI), in the LXC console as root:
+**One cross-seed:** web UI and agent in the same LXC.
 
 ```bash
-export GITHUB_TOKEN=github_pat_xxxxxxxx
-curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" \
-  https://api.github.com/repos/ckegels/cross-seed-ui/contents/deploy/install.sh | bash -s -- --role both
+curl -fsSL https://raw.githubusercontent.com/ckegels/cross-seed-ui/main/deploy/install.sh | bash -s -- --role both
 ```
 
-It prints the web address (`http://<lxc-a-ip>:2470`) and a **setup token**. Open the address and create your admin
-account with the token. The cross-seed of LXC A is already added.
+It prints the web address (`http://<lxc-ip>:2470`) and a one-time **setup token**. Open the address and create your
+admin account with the token. The local cross-seed is already added.
 
-**LXC B** (only cross-seed), as root. Replace `<lxc-a-ip>` so only the hub may talk to this agent:
+**More cross-seeds** (for example a second LXC): install only the agent there. Use `--allow-ip` with the address of the
+LXC that runs the web UI, so nothing else can talk to the agent:
 
 ```bash
-export GITHUB_TOKEN=github_pat_xxxxxxxx
-curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" \
-  https://api.github.com/repos/ckegels/cross-seed-ui/contents/deploy/install.sh | bash -s -- --role agent --allow-ip <lxc-a-ip>
+curl -fsSL https://raw.githubusercontent.com/ckegels/cross-seed-ui/main/deploy/install.sh | bash -s -- --role agent --allow-ip <web-ui-lxc-ip>
 ```
 
-It prints a URL and a secret. In the web UI go to **Settings → Instances → Add instance** and paste them.
+It prints a URL and a secret. In the web UI go to **UI settings → Instances → Add instance** and paste them.
 
-Then: **Settings → Prowlarr** (URL + API key), and per instance **Indexers** to pick the indexers.
+Then connect Prowlarr under **UI settings → Prowlarr**, and set up each instance on its own tabs:
+**Connections** (torrent clients, Sonarr, Radarr, notifications), **Indexers** and **cross-seed settings**.
 
 ### Installer options
 
 | Option | Meaning |
 |---|---|
 | `--role agent\|hub\|both` | what to install |
-| `--allow-ip IP[/CIDR]` | agent only accepts requests from these addresses (repeatable) |
+| `--allow-ip IP[/CIDR]` | the agent only accepts requests from these addresses (repeatable) |
 | `--agent-port` / `--hub-port` | default 2469 / 2470 |
-| `--cross-seed-dir DIR` | default `/root/.cross-seed` |
-| `--cross-seed-service NAME` | default `cross-seed` |
+| `--cross-seed-dir DIR` | cross-seed's config folder, default `/root/.cross-seed` |
+| `--cross-seed-service NAME` | cross-seed's systemd service, default `cross-seed` |
 | `--version vX.Y.Z` | install a specific release |
-| `--tarball FILE` | install from a downloaded release file (no GitHub access needed) |
+| `--tarball FILE` | install from a downloaded release file |
 
-## Update, rollback, management
+Prefer to read a script before running it? Download `deploy/install.sh`, read it, then run `bash install.sh`.
+
+## Update, rollback and other commands
 
 ```bash
-cross-seed-ui update          # latest release (run in every LXC: hub and agents)
+cross-seed-ui update          # latest release (run it in every LXC: web UI and agents)
 cross-seed-ui update 0.2.0    # a specific version
 cross-seed-ui rollback        # back to the previous version
 cross-seed-ui status
-cross-seed-ui logs            # follow the logs (agent/hub)
-cross-seed-ui agent-info      # URL + secret of this agent
-cross-seed-ui reset-password admin
-cross-seed-ui disable-2fa admin
+cross-seed-ui logs            # follow the logs
+cross-seed-ui agent-info      # URL and secret of this agent
+cross-seed-ui reset-password <user>
+cross-seed-ui disable-2fa <user>
 cross-seed-ui uninstall       # cross-seed itself is never touched
 ```
 
-Settings live in `/etc/cross-seed-ui/` and data in `/var/lib/cross-seed-ui/`; updates never overwrite them.
-The web UI shows when a new version is available (Settings → About & updates).
+Settings are kept in `/etc/cross-seed-ui/` and data in `/var/lib/cross-seed-ui/`. Updates never overwrite them.
+The web UI tells you when a new version is out (**UI settings → About & updates**).
 
-## Security notes
+## Security
 
-- First start: an admin can only be created with the one-time setup token.
-- Passwords: scrypt. Optional TOTP 2FA. 5 failed logins per user (20 per IP) lock for 15 minutes.
-- Sessions: random token in an HttpOnly, SameSite=Strict cookie; only its hash is stored. Signed out after 7 days of
-  inactivity or 30 days. Changing the password signs out every session.
-- Revealing secrets, editing raw `config.js`, managing users or instances requires typing your password again.
-- Strict Content-Security-Policy, anti-CSRF header, clickjacking protection, audit log of every change.
-- Hub ↔ agent: HMAC-SHA256 signatures with timestamp + nonce (no replay); the shared secret never travels over the
-  network. Optionally restrict agents to the hub's IP (`--allow-ip`).
-- API keys and passwords inside URLs are replaced by a placeholder before they leave the agent and restored on save.
-- The UI talks plain HTTP on your LAN. For access from outside your LAN put it behind a reverse proxy with HTTPS
-  (Nginx Proxy Manager, Caddy, Traefik) and set `"trustProxy": true` in `/etc/cross-seed-ui/hub.json`. Don't expose it
-  directly to the internet.
-- The agent runs as root because cross-seed does. Anyone who is admin in the UI can change `config.js`, which
-  cross-seed executes as root: only give admin to people you'd give root.
+- The first admin account can only be created with the one-time setup token printed by the installer.
+- Passwords are stored with scrypt. Optional two-factor authentication (TOTP). After 5 failed logins for a user (or 20
+  from one address) logging in is blocked for 15 minutes.
+- Sessions use a random token in an HttpOnly, SameSite=Strict cookie, and only its hash is stored. You are signed out
+  after 7 days without activity or after 30 days, and changing your password signs out every session.
+- Revealing secrets, editing the raw `config.js`, and managing users or instances ask for your password again.
+- Strict Content-Security-Policy, an anti-CSRF header on every change, clickjacking protection, and an audit log of
+  every sign-in and change.
+- The web UI and agents sign every request with HMAC-SHA256 plus a timestamp and nonce, so requests can't be replayed,
+  and the shared secret never travels over the network.
+- API keys and passwords inside URLs are replaced by a placeholder before they reach the browser and put back
+  when you save.
+- The web UI speaks plain HTTP. On your own network that is fine; to reach it from outside, put it behind a reverse
+  proxy with HTTPS (Nginx Proxy Manager, Caddy, Traefik) and set `"trustProxy": true` in
+  `/etc/cross-seed-ui/hub.json`. Don't expose it directly to the internet.
+- The agent runs as root because cross-seed does (community script). An admin in the web UI can change `config.js`,
+  which cross-seed runs as root, so only make people admin whom you would trust with root. Use the viewer role for
+  everyone else.
+
+Found a security problem? Please open a private
+[security advisory](https://github.com/ckegels/cross-seed-ui/security/advisories/new) instead of a public issue.
 
 ## Troubleshooting
 
-| Problem | Fix |
+| Problem | What to do |
 |---|---|
-| Instance shows "Agent offline" | `cross-seed-ui status` in that LXC; check the URL/port and `--allow-ip` (see `allowedIps` in `/etc/cross-seed-ui/agent.json`). |
-| "Unauthorized: timestamp outside allowed window" | The clocks of hub and agent differ by more than 60 s. Fix time sync on the Proxmox host. |
-| "cross-seed is not running" | Open the instance → Settings: errors cross-seed would report are shown at each option. Maintenance → Service output shows the journal. |
-| Locked out | `cross-seed-ui reset-password <user>` (and `disable-2fa`) in the hub LXC. |
-| Service fails with status 226/NAMESPACE | The installer disables systemd sandboxing automatically for LXCs that don't support it; rerun `cross-seed-ui update`. |
+| An instance shows "Agent offline" | Run `cross-seed-ui status` in that LXC. Check the URL and port, and `allowedIps` in `/etc/cross-seed-ui/agent.json`. |
+| "Unauthorized: timestamp outside allowed window" | The clocks of the two LXCs differ by more than 60 seconds. Fix time sync on the host. |
+| "cross-seed is not running" | Open the instance's **cross-seed settings**: problems are shown at each option. **Maintenance → Service output** shows why it stopped. |
+| Locked out | `cross-seed-ui reset-password <user>` (and `disable-2fa <user>`) in the LXC that runs the web UI. |
+| Service fails with status 226/NAMESPACE | Some LXCs don't allow systemd sandboxing. The installer detects this and turns it off; run `cross-seed-ui update` again. |
+
+## Try it without installing
+
+`scripts/demo/demo.sh start` runs a complete demo on your computer: two real cross-seed 6.13.9 daemons against fake
+qBittorrent, Prowlarr, Sonarr and Radarr, with two weeks of made-up history. Needs Node.js ≥ 22.13 and npm.
+
+```bash
+git clone https://github.com/ckegels/cross-seed-ui && cd cross-seed-ui
+npm install
+scripts/demo/demo.sh start      # http://localhost:2470, user "demo", password "show me around"
+scripts/demo/demo.sh stop
+```
 
 ## Development
 
 ```bash
 npm install
 npm test && npm run typecheck
-npm run build                  # dist/
-CSUI_VERSION=0.2.0 npm run release   # release/cross-seed-ui-0.2.0.tar.gz (+ .sha256)
+npm run build                         # dist/
+CSUI_VERSION=0.2.0 npm run release    # release/cross-seed-ui-0.2.0.tar.gz (+ .sha256)
 ```
 
-Local dev setup (agent + hub + mock indexers against a real cross-seed): see `HANDOVER.md`.
-Publishing a release: push a tag `vX.Y.Z` (see `.github/workflows/release.yml` and `CHANGELOG.md`).
+`HANDOVER.md` explains the architecture, what was learned about cross-seed's internals, and the development setup.
+Releases are published by pushing a `vX.Y.Z` tag (see `.github/workflows/release.yml` and `CHANGELOG.md`).
+
+## License
+
+[MIT](LICENSE)

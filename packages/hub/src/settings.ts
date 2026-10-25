@@ -22,7 +22,7 @@ export interface HubSettings {
 	sudoMinutes: number;
 	/** where `cross-seed-ui update` gets releases (owner/repo) */
 	githubRepo: string;
-	/** file with a GitHub token for the private repo (optional) */
+	/** file with a GitHub token, only needed for a private fork (optional) */
 	githubTokenFile: string;
 }
 

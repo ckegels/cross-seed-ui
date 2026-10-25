@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
 # cross-seed-ui installer / updater for Debian/Ubuntu LXCs (Proxmox).
 #
-# Install (private repo => fine-grained GitHub token with read-only "Contents"):
-#   export GITHUB_TOKEN=github_pat_xxx
-#   curl -fsSL -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github.raw" \
-#     https://api.github.com/repos/ckegels/cross-seed-ui/contents/deploy/install.sh | bash -s -- --role both
+# Install:
+#   curl -fsSL https://raw.githubusercontent.com/ckegels/cross-seed-ui/main/deploy/install.sh | bash -s -- --role both
 #
 # Roles:
 #   agent  in every LXC that runs cross-seed (edits config.js, reads logs/db, restarts the service)
@@ -48,7 +46,7 @@ Usage: install.sh [options]
   --role agent|hub|both     what to install (asked if omitted)
   --update                  update an existing install (role from $ETC/install.conf)
   --version vX.Y.Z          release to install (default: latest)
-  --token TOKEN             GitHub token for the private repo (or env GITHUB_TOKEN; stored in $ETC/github-token)
+  --token TOKEN             GitHub token, only needed for a private fork (or env GITHUB_TOKEN; stored in $ETC/github-token)
   --repo owner/name         GitHub repository (default: $REPO)
   --tarball FILE            install from a local release tarball instead of GitHub
   --agent-port N            agent port (default 2469)
@@ -162,11 +160,10 @@ fetch_release() { # -> sets REL_DIR
 		file="$TARBALL"
 		[[ -f $file ]] || die "Tarball $file not found"
 	else
-		[[ -n $TOKEN ]] || warn "No GitHub token given; this only works if the repository is public."
 		local api="https://api.github.com/repos/$REPO/releases/latest"
 		[[ $VERSION != latest ]] && api="https://api.github.com/repos/$REPO/releases/tags/v${VERSION#v}"
 		local rel
-		rel="$(gh_api "$api" -H "Accept: application/vnd.github+json")" || die "Could not read release info from $REPO (token missing or no release published?)"
+		rel="$(gh_api "$api" -H "Accept: application/vnd.github+json")" || die "Could not read release info from $REPO (no release published yet? for a private fork pass --token)"
 		local asset_url sum_url name
 		name="$(json_field "$rel" 'j.assets.find(a=>/^cross-seed-ui-.*\.tar\.gz$/.test(a.name))?.name')" || die "Release has no cross-seed-ui-*.tar.gz asset"
 		asset_url="$(json_field "$rel" "j.assets.find(a=>a.name===\"$name\").url")"

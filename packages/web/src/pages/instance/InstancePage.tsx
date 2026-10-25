@@ -18,7 +18,7 @@ const TABS = [
 	{ id: "activity", label: "Activity", icon: <ActivityIcon size={15} /> },
 	{ id: "indexers", label: "Indexers", icon: <ListTree size={15} /> },
 	{ id: "connections", label: "Connections", icon: <Cable size={15} /> },
-	{ id: "settings", label: "Settings", icon: <SlidersHorizontal size={15} /> },
+	{ id: "settings", label: "cross-seed settings", icon: <SlidersHorizontal size={15} /> },
 	{ id: "history", label: "History", icon: <History size={15} /> },
 	{ id: "library", label: "Library", icon: <Library size={15} /> },
 	{ id: "maintenance", label: "Maintenance", icon: <Wrench size={15} /> },
@@ -51,7 +51,12 @@ export function InstancePage({ id, tab }: { id: number; tab?: string }) {
 			<PageHeader
 				title={instance.name}
 				icon={<span className="inline-block size-3.5 rounded-[4px]" style={{ background: instanceColor(id) }} />}
-				subtitle={<span className="font-mono text-xs">{instance.url}</span>}
+				subtitle={
+					<span>
+						Everything on these tabs applies only to this instance (its own cross-seed and config.js).{" "}
+						<span className="font-mono text-xs">{instance.url}</span>
+					</span>
+				}
 			/>
 			<div className="mb-5">
 				<Tabs tabs={[...TABS]} value={current} onChange={(t) => navigate(`/i/${id}/${t}`)} />
