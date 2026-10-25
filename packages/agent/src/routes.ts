@@ -2,7 +2,7 @@
  * Agent HTTP API (/v1/*). Every request must carry a valid HMAC signature
  * from the hub (see shared/src/node/hmac.ts).
  */
-import { readdir, statfs } from "node:fs/promises";
+import { readdir, readFile, statfs } from "node:fs/promises";
 import { hostname, loadavg, totalmem, freemem, uptime } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
 import {
@@ -48,6 +48,36 @@ export interface AgentContext {
 }
 
 const DAY = 86_400_000;
+
+/** cross-seed CLI runs other than the daemon (e.g. a `cross-seed search` started in a terminal). Linux /proc only. */
+async function manualRuns(): Promise<{ pid: number; command: string; startedAt: number | null }[]> {
+	const out: { pid: number; command: string; startedAt: number | null }[] = [];
+	const pids = (await readdir("/proc").catch(() => [] as string[])).filter((p) => /^\d+$/.test(p));
+	let bootTime = 0;
+	try {
+		bootTime = Number(/btime (\d+)/.exec(await readFile("/proc/stat", "utf8"))?.[1] ?? 0) * 1000;
+	} catch {
+		/* not linux */
+	}
+	for (const pid of pids) {
+		const cmd = await readFile(`/proc/${pid}/cmdline`, "utf8").catch(() => "");
+		if (!cmd) continue;
+		const args = cmd.split("\0").filter(Boolean);
+		const i = args.findIndex((a) => /(^|\/)cross-seed(\.js|\/dist\/cmd\.js)?$/.test(a));
+		const sub = i >= 0 ? args[i + 1] : undefined;
+		if (!sub || !["search", "rss", "inject", "restore"].includes(sub)) continue;
+		let startedAt: number | null = null;
+		try {
+			const stat = await readFile(`/proc/${pid}/stat`, "utf8");
+			const ticks = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[19]);
+			if (bootTime && Number.isFinite(ticks)) startedAt = bootTime + (ticks / 100) * 1000;
+		} catch {
+			/* ignore */
+		}
+		out.push({ pid: Number(pid), command: `cross-seed ${args.slice(i + 1).join(" ")}`.slice(0, 200), startedAt });
+	}
+	return out;
+}
 
 function ipAllowed(ip: string, allowed: string[]): boolean {
 	if (!allowed.length) return true;
@@ -161,6 +191,7 @@ export function buildRouter(ctx: AgentContext): Router {
 				configDir: settings.crossSeedDir,
 				configExists: !!loaded?.exists,
 				dbExists: ctx.csdb.exists(),
+				manualRuns: await manualRuns(),
 			},
 			service,
 			daemon: {
@@ -178,7 +209,7 @@ export function buildRouter(ctx: AgentContext): Router {
 	r.get("/v1/activity", async () => {
 		const st = await ctx.service.status();
 		const active = st.manager === "none" ? true : st.state === "active";
-		return ctx.tailer.activity.snapshot(active);
+		return ctx.tailer.activity.snapshot(active, (st.state === "activating" || st.state === "deactivating") && st.subState !== "auto-restart");
 	});
 
 	// ------------------------------------------------------------- config
@@ -451,7 +482,7 @@ export function buildRouter(ctx: AgentContext): Router {
 		});
 		const activityTimer = setInterval(async () => {
 			const st = await ctx.service.status();
-			sse.send("activity", ctx.tailer.activity.snapshot(st.manager === "none" || st.state === "active"));
+			sse.send("activity", ctx.tailer.activity.snapshot(st.manager === "none" || st.state === "active", (st.state === "activating" || st.state === "deactivating") && st.subState !== "auto-restart"));
 		}, 3000);
 		sse.onClose(() => {
 			unsubscribe();

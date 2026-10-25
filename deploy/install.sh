@@ -196,6 +196,8 @@ fetch_release() { # -> sets REL_DIR
 	chmod 755 "$REL_DIR/bin/cross-seed-ui" "$REL_DIR/deploy/install.sh"
 	ln -sfn "$REL_DIR" "$PREFIX/current"
 	ln -sfn "$PREFIX/current/bin/cross-seed-ui" /usr/local/bin/cross-seed-ui
+	# `pct enter` / the Proxmox console give a PATH without /usr/local/bin
+	ln -sfn "$PREFIX/current/bin/cross-seed-ui" /usr/bin/cross-seed-ui
 	RELEASE_VERSION="$ver"
 	ok "Installed release $ver in $REL_DIR"
 	# keep the 3 newest releases (+ current)

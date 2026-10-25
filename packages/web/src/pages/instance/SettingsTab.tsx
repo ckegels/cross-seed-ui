@@ -12,6 +12,7 @@ import {
 } from "@csui/shared";
 import { api, inst } from "../../api.ts";
 import { Button, Card, Input, Modal, Notice, Select, Switch, Textarea, useToast } from "../../ui/index.tsx";
+import { RestartProgress } from "../../ui/RestartProgress.tsx";
 import { RestartResultView, useDraft } from "./configDraft.tsx";
 import { OptionField, OptionRow } from "./fields.tsx";
 
@@ -98,6 +99,7 @@ function RawEditor() {
 	const [restart, setRestart] = useState(true);
 	const [busy, setBusy] = useState(false);
 	const [result, setResult] = useState<SaveConfigResponse | null>(null);
+	const [startedAt, setStartedAt] = useState(0);
 	const load = async () => {
 		try {
 			const r = await api.get<{ text: string; hash: string }>(inst(d.instanceId, "config/raw?reveal=1"));
@@ -110,6 +112,7 @@ function RawEditor() {
 		}
 	};
 	const save = async () => {
+		setStartedAt(Date.now());
 		setBusy(true);
 		try {
 			const r = await api.put<SaveConfigResponse>(inst(d.instanceId, "config/raw"), { text, baseHash: hash, restart, autoRollback: true });
@@ -151,6 +154,8 @@ function RawEditor() {
 			>
 				{result ? (
 					result.restart ? <RestartResultView result={result.restart} /> : <Notice tone="good" title="Saved">Restart cross-seed to apply.</Notice>
+				) : busy && restart ? (
+					<RestartProgress instanceId={d.instanceId} startedAt={startedAt} />
 				) : (
 					<div className="space-y-2">
 						<Notice tone="warning" title="Advanced">

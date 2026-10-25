@@ -81,4 +81,21 @@ describe("ActivityTracker", () => {
 		assert.equal(a.state, "idle");
 		assert.equal(t.snapshot(false).state, "stopped");
 	});
+	it("reports starting while cross-seed validates and loads torrents after a restart", () => {
+		const t = new ActivityTracker();
+		const p = (n: number) => String(n).padStart(2, "0");
+		const d = new Date();
+		const ts = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.000`;
+		feed(t, `${ts} info: cross-seed v6.13.9`);
+		feed(t, `${ts} info: Validating your configuration...`);
+		assert.equal(t.snapshot(true).state, "starting");
+		feed(t, `${ts} info: Your configuration is valid!`);
+		assert.equal(t.snapshot(true).state, "starting");
+		feed(t, `${ts} info: [server] Server is running on port 2468, ^C to stop.`);
+		assert.equal(t.snapshot(true).state, "idle");
+		feed(t, `${ts} info: Validating your configuration...`);
+		feed(t, `${ts} error: Your configuration is invalid, please see the error above for details.`);
+		assert.equal(t.snapshot(false).state, "stopped");
+		assert.equal(t.snapshot(false, true).state, "starting");
+	});
 });

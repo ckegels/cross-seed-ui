@@ -84,7 +84,11 @@ function InstanceCard({ e, now, onAction }: { e: OverviewEntry; now: number; onA
 				<ErrorBox error={e.error} />
 			) : (
 				<>
-					{svc && svc.state !== "active" && svc.manager !== "none" ? (
+					{state === "starting" ? (
+						<Notice tone="warning" title="cross-seed is starting…">
+							Checking its configuration and loading your torrents. This page updates by itself.
+						</Notice>
+					) : svc && svc.state !== "active" && svc.manager !== "none" ? (
 						<Notice tone="critical" title={`cross-seed is not running (${svc.state}${svc.subState ? `, ${svc.subState}` : ""})`}>
 							Usually a config problem. Check <Link to={`/i/${e.instance.id}/settings`} className="text-accent hover:underline">Settings</Link> for errors or the{" "}
 							<Link to={`/i/${e.instance.id}/maintenance`} className="text-accent hover:underline">service output</Link>.

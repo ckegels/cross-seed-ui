@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import type { CrossSeedConfig } from "@csui/shared";
 import { HttpError } from "@csui/shared/src/node/http.ts";
 import type { CrossSeedDb } from "./crossSeedDb.ts";
+import type { ServiceController } from "./service.ts";
 
 const execFileP = promisify(execFile);
 
@@ -47,6 +48,7 @@ export class CrossSeedDaemon {
 		private bin: string,
 		private crossSeedDir: string,
 		private db: CrossSeedDb,
+		private opts: { url?: string; exec?: ServiceController["exec"] } = {},
 	) {}
 
 	private env() {
@@ -54,6 +56,14 @@ export class CrossSeedDaemon {
 	}
 
 	async runCli(args: string[], timeoutMs = 120_000): Promise<{ stdout: string; stderr: string; code: number }> {
+		if (this.opts.exec) {
+			// docker: run the CLI inside the cross-seed container (same version, same /config)
+			try {
+				return await this.opts.exec(["cross-seed", ...args], timeoutMs);
+			} catch (e) {
+				throw new HttpError(502, `Could not run cross-seed in its container: ${(e as Error).message}`, "exec_failed");
+			}
+		}
 		try {
 			const { stdout, stderr } = await execFileP(this.bin, args, {
 				env: this.env(),
@@ -103,6 +113,7 @@ export class CrossSeedDaemon {
 	baseUrl(config: CrossSeedConfig): string | null {
 		const port = config.port === undefined ? 2468 : config.port;
 		if (port === null || port === false || typeof port !== "number") return null;
+		if (this.opts.url) return this.opts.url.replace(/\/+$/, "");
 		let host = typeof config.host === "string" && config.host && config.host !== "0.0.0.0" ? config.host : "127.0.0.1";
 		if (host === "::") host = "::1";
 		if (host.includes(":")) host = `[${host}]`;

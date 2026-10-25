@@ -5,7 +5,8 @@ import { api, inst } from "../../api.ts";
 import { ago, num, until } from "../../format.ts";
 import { useApi, useNow } from "../../hooks.ts";
 import { Link } from "../../router.tsx";
-import { Badge, Button, Card, ErrorBox, Modal, Notice, Segmented, Spinner, Switch, useToast } from "../../ui/index.tsx";
+import { Badge, Button, Card, ErrorBox, Modal, Notice, Segmented, Spinner, Switch, useConfirm, useToast } from "../../ui/index.tsx";
+import { RestartingModal } from "../../ui/RestartProgress.tsx";
 import { RestartResultView, useDraft } from "./configDraft.tsx";
 import { ListEditor, OptionRow } from "./fields.tsx";
 import { maskSecret, OPTION_BY_KEY, sameIndexerUrl, type SaveConfigResponse, unmaskSecret } from "@csui/shared";
@@ -81,6 +82,19 @@ function HealthTable() {
 	const [clearing, setClearing] = useState(false);
 	const torznab = (draft.torznab as string[]) ?? [];
 	const removeUrl = (dbUrl: string) => set("torznab", torznab.filter((u) => !sameIndexerUrl(u, dbUrl)));
+	// cross-seed's indexer table stores the URL without the apikey: test the config entry instead
+	const configUrlFor = (dbUrl: string) => torznab.find((u) => sameIndexerUrl(u, dbUrl));
+	// cross-seed only learns a name from its first search results; Prowlarr already knows it
+	const prowlarr = useApi<{ configured: boolean; url?: string; torznabBaseUrl?: string | null }>("/api/prowlarr");
+	const prowlarrList = useApi<{ indexers: { id: number; name: string }[] }>(prowlarr.data?.configured ? "/api/prowlarr/indexers" : null);
+	const prowlarrNameFor = (url: string): string | null => {
+		const bases = [prowlarr.data?.url, prowlarr.data?.torznabBaseUrl].filter(Boolean) as string[];
+		for (const b of bases) {
+			const m = new RegExp(`^${b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\/+$/, "")}/(\\d+)/api`).exec(url);
+			if (m) return prowlarrList.data?.indexers.find((x) => x.id === Number(m[1]))?.name ?? null;
+		}
+		return null;
+	};
 	const clearFailures = async () => {
 		setClearing(true);
 		try {
@@ -131,7 +145,14 @@ function HealthTable() {
 							{data.map((i) => (
 								<tr key={`${i.id}-${i.url}`} className={i.inConfig ? "" : "opacity-60"}>
 									<td className="px-4 py-2.5 min-w-56">
-										<div className="font-medium">{i.name ?? "Unnamed"}</div>
+										<div className="font-medium">
+											{i.name ??
+												(prowlarrNameFor(i.url) ? (
+													<span title="Name from Prowlarr. cross-seed shows its own name for this indexer after the first search with results.">{prowlarrNameFor(i.url)}</span>
+												) : (
+													<span className="text-ink-3" title="cross-seed learns the name from the first search results">Name not known yet</span>
+												))}
+										</div>
 										<div className="text-[11px] text-ink-3 font-mono truncate max-w-80" title={i.url}>
 											{i.url}
 										</div>
@@ -150,7 +171,7 @@ function HealthTable() {
 									</td>
 									<td className="px-4 py-2.5">
 										<div className="flex justify-end gap-1.5">
-											{i.inConfig && <TestButton kind="torznab" value={i.url} />}
+											{i.inConfig && configUrlFor(i.url) && <TestButton kind="torznab" value={configUrlFor(i.url)!} />}
 											{canEdit && i.inConfig && torznab.some((u) => sameIndexerUrl(u, i.url)) && (
 												<Button size="sm" variant="ghost" icon={<Trash2 size={12} />} onClick={() => removeUrl(i.url)} title="Remove from config (save to apply)">
 													Remove
@@ -182,6 +203,7 @@ interface Policy {
 	tagIds: number[];
 	privateOnly: boolean;
 	auto: boolean;
+	saved?: boolean;
 }
 
 function ProwlarrPanel() {
@@ -193,8 +215,21 @@ function ProwlarrPanel() {
 	const [policy, setPolicy] = useState<Policy | null>(null);
 	const [preview, setPreview] = useState<{ changed: boolean; added: string[]; removed: string[] } | null>(null);
 	const [applyResult, setApplyResult] = useState<SaveConfigResponse["restart"] | null>(null);
+	const [applyingSince, setApplyingSince] = useState<number | null>(null);
 	const [busy, setBusy] = useState<string | null>(null);
-	const p = policy ?? policyApi.data ?? null;
+	const { confirm, dialog } = useConfirm();
+	// A policy that was never saved starts from the Prowlarr indexers already in config.js,
+	// so ticking one more adds it instead of replacing everything.
+	const inConfigIds = (list.data?.indexers ?? []).filter((i) => i.usedBy.includes(instanceId)).map((i) => i.id);
+	const p: Policy | null =
+		policy ??
+		(policyApi.data
+			? policyApi.data.saved
+				? policyApi.data
+				: list.data
+					? { ...policyApi.data, mode: "selected", indexerIds: inConfigIds }
+					: null
+			: null);
 
 	if (!status.data) return <Card title="Prowlarr"><Spinner /></Card>;
 	if (!status.data.configured)
@@ -229,6 +264,28 @@ function ProwlarrPanel() {
 	const apply = async () => {
 		setBusy("apply");
 		try {
+			// show what would be removed before touching anything
+			const plan = await api.post<{ changed: boolean; added: string[]; removed: string[] }>(`/api/instances/${instanceId}/prowlarr/sync`, { dryRun: true });
+			if (!plan.changed) {
+				toast("accent", "Already in sync, nothing to change");
+				return;
+			}
+			if (plan.removed.length) {
+				const ok = await confirm({
+					title: `Remove ${plan.removed.length} indexer${plan.removed.length === 1 ? "" : "s"} from this instance?`,
+					body: (
+						<div className="space-y-2">
+							<p>Applying this selection removes: <b>{plan.removed.join(", ")}</b>.</p>
+							{plan.added.length > 0 && <p>And adds: {plan.added.join(", ")}.</p>}
+							<p>Only continue if you want cross-seed to stop using {plan.removed.length === 1 ? "it" : "them"}.</p>
+						</div>
+					),
+					danger: true,
+					confirmLabel: "Remove and restart",
+				});
+				if (!ok) return;
+			}
+			setApplyingSince(Date.now());
 			const r = await api.post<{ changed: boolean; result: SaveConfigResponse | null }>(`/api/instances/${instanceId}/prowlarr/sync`, { restart: true });
 			setPreview(null);
 			if (!r.changed) toast("accent", "Already in sync, nothing to change");
@@ -238,6 +295,7 @@ function ProwlarrPanel() {
 			toast("critical", (e as Error).message);
 		} finally {
 			setBusy(null);
+			setApplyingSince(null);
 		}
 	};
 
@@ -332,6 +390,8 @@ function ProwlarrPanel() {
 					)}
 				</div>
 			)}
+			{dialog}
+			<RestartingModal instanceId={instanceId} startedAt={applyingSince} saving />
 			<Modal open={!!applyResult} onClose={() => setApplyResult(null)} title="Prowlarr sync applied" footer={<Button variant="primary" onClick={() => setApplyResult(null)}>Done</Button>}>
 				<RestartResultView result={applyResult} />
 			</Modal>

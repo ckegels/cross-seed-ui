@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.2.1
+
+Fixes from the first real installs:
+
+- **Prowlarr picker:** the indexer list now starts from the indexers already in the instance's config.js, so ticking
+  one adds it instead of replacing all others. Applying a selection that removes indexers now asks first and names them.
+- **Restarts are visible:** saving, Prowlarr apply, restore and Maintenance → Restart show live progress (restarting,
+  checking the config, loading torrents, back online) instead of a bare spinner. The save dialog no longer disappears
+  after a successful save. Instances show "Starting…" instead of "stopped" while cross-seed boots, and every instance
+  page shows a banner while it is starting or stopped.
+- **Indexers:** the Test button in the health table used cross-seed's stored URL, which has no API key, and got 401;
+  it now tests the config entry. New indexers show their Prowlarr name until cross-seed learns its own.
+- **Stopped daemon:** when cross-seed's service is stopped but a `cross-seed search` started by hand is running,
+  the banner says so.
+- **Installer:** `cross-seed-ui` is also linked into /usr/bin, because the Proxmox console's PATH has no /usr/local/bin.
+- Warning for duplicate Torznab URLs.
+
 ## 0.2.0
 
 First public release.

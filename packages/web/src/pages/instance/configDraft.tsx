@@ -16,6 +16,7 @@ import {
 import { api, ApiError, inst } from "../../api.ts";
 import { useApp } from "../../state.tsx";
 import { Button, ErrorBox, Field, Input, Modal, Notice, Switch, useToast } from "../../ui/index.tsx";
+import { RestartProgress } from "../../ui/RestartProgress.tsx";
 
 interface DraftCtx {
 	loaded: ConfigResponse | null;
@@ -123,11 +124,14 @@ export function SaveBar() {
 	const [error, setError] = useState<unknown>(null);
 	const [result, setResult] = useState<SaveConfigResponse | null>(null);
 	const [force, setForce] = useState(false);
+	const [startedAt, setStartedAt] = useState(0);
 
-	if (!d.loaded || !d.dirtyKeys.length || !d.canEdit) return null;
+	// keep the dialog mounted after saving (the draft is clean again by then)
+	if (!d.loaded || !d.canEdit || (!d.dirtyKeys.length && !open)) return null;
 	const errors = d.validation.errors;
 
 	const save = async () => {
+		setStartedAt(Date.now());
 		setBusy(true);
 		setError(null);
 		try {
@@ -162,6 +166,7 @@ export function SaveBar() {
 
 	return (
 		<>
+			{d.dirtyKeys.length > 0 && (
 			<div className="sticky bottom-3 z-20 mt-6">
 				<div className="card flex flex-wrap items-center gap-3 px-4 py-3 shadow-lg border-accent/40">
 					<div className="flex-1 min-w-0 text-sm">
@@ -179,10 +184,11 @@ export function SaveBar() {
 					</Button>
 				</div>
 			</div>
+			)}
 			<Modal
 				open={open}
-				onClose={close}
-				title={result ? "Saved" : "Save configuration"}
+				onClose={() => !busy && close()}
+				title={result ? "Saved" : busy && restart ? "Applying" : "Save configuration"}
 				wide
 				footer={
 					result ? (
@@ -191,7 +197,7 @@ export function SaveBar() {
 						</Button>
 					) : (
 						<>
-							<Button onClick={close}>Cancel</Button>
+							<Button onClick={close} disabled={busy}>Cancel</Button>
 							<Button variant="primary" loading={busy} disabled={errors.length > 0 && !force} onClick={save} icon={<Save size={14} />}>
 								{restart ? "Save & restart" : "Save"}
 							</Button>
@@ -204,6 +210,8 @@ export function SaveBar() {
 						{result.backupId && <p className="text-xs text-ink-3">Previous version backed up as {result.backupId}.</p>}
 						{result.restart ? <RestartResultView result={result.restart} /> : <Notice tone="accent" title="Saved without restart">cross-seed reads config.js only at startup. Restart it from the Maintenance tab to apply.</Notice>}
 					</div>
+				) : busy && restart ? (
+					<RestartProgress instanceId={d.instanceId} startedAt={startedAt} />
 				) : (
 					<div className="space-y-4">
 						<div className="rounded-lg border border-line divide-y divide-line">

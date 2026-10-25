@@ -9,7 +9,7 @@ import type { ValidationResult } from "./validate.ts";
 export const AGENT_API_VERSION = 1;
 
 export interface ServiceStatus {
-	manager: "systemd" | "process" | "none";
+	manager: "systemd" | "process" | "docker" | "none";
 	name: string;
 	/** active | inactive | failed | activating | deactivating | unknown */
 	state: string;
@@ -41,6 +41,8 @@ export interface AgentInfo {
 		configDir: string;
 		configExists: boolean;
 		dbExists: boolean;
+		/** cross-seed commands started by hand (e.g. `cross-seed search`), not the daemon */
+		manualRuns: { pid: number; command: string; startedAt: number | null }[];
 	};
 	service: ServiceStatus;
 	daemon: {
@@ -214,7 +216,7 @@ export interface InstanceStats {
 }
 
 export interface Activity {
-	/** idle | searching | rss | injecting | cleanup | caps | starting | stopped */
+	/** idle | searching | rss | injecting | cleanup | caps | starting | stopped (starting = validating config / loading torrents) */
 	state: string;
 	runningJobs: { name: string; since: number }[];
 	progress: {

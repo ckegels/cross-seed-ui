@@ -3,7 +3,7 @@
  * Created by deploy/install.sh. Every field has a sane default for the Proxmox
  * community-script install (cross-seed as root, config in /root/.cross-seed).
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 export interface AgentSettings {
@@ -14,12 +14,16 @@ export interface AgentSettings {
 	/** optional allow-list of hub IPs (exact match or CIDR); empty = any */
 	allowedIps: string[];
 	crossSeedDir: string;
+	/** address of cross-seed's API when it isn't on this host (docker: http://cross-seed:2468) */
+	crossSeedUrl?: string;
 	/** cross-seed executable (resolved via PATH when not absolute) */
 	crossSeedBin: string;
 	service: {
-		/** systemd: control `name` via systemctl. process: spawn `command` (dev). none: no control */
-		manager: "systemd" | "process" | "none";
+		/** systemd: control `name` via systemctl. docker: container `name` via the Docker API. process: spawn `command` (dev). none: no control */
+		manager: "systemd" | "process" | "docker" | "none";
 		name: string;
+		/** docker only: unix:///var/run/docker.sock or tcp://socket-proxy:2375 */
+		dockerHost?: string;
 		command?: string[];
 		env?: Record<string, string>;
 	};
@@ -45,12 +49,40 @@ export const DEFAULT_SETTINGS: Omit<AgentSettings, "secret"> = {
 	backfillLogs: true,
 };
 
+/**
+ * Settings from environment variables (used by the Docker image when no
+ * settings file exists). Every variable is optional except the secret.
+ */
+export function settingsFromEnv(env = process.env): Partial<AgentSettings> {
+	const out: Partial<AgentSettings> = {};
+	if (env.CSUI_LISTEN) out.listen = env.CSUI_LISTEN;
+	if (env.CSUI_PORT) out.port = Number(env.CSUI_PORT);
+	if (env.CSUI_AGENT_SECRET) out.secret = env.CSUI_AGENT_SECRET;
+	if (env.CSUI_ALLOWED_IPS) out.allowedIps = env.CSUI_ALLOWED_IPS.split(",").map((x) => x.trim()).filter(Boolean);
+	if (env.CSUI_CROSS_SEED_DIR) out.crossSeedDir = env.CSUI_CROSS_SEED_DIR;
+	if (env.CSUI_CROSS_SEED_URL) out.crossSeedUrl = env.CSUI_CROSS_SEED_URL;
+	if (env.CSUI_CROSS_SEED_BIN) out.crossSeedBin = env.CSUI_CROSS_SEED_BIN;
+	if (env.CSUI_STATE_DIR) out.stateDir = env.CSUI_STATE_DIR;
+	if (env.CSUI_SERVICE_MANAGER || env.CSUI_CROSS_SEED_CONTAINER) {
+		out.service = {
+			manager: (env.CSUI_SERVICE_MANAGER as AgentSettings["service"]["manager"]) ?? "docker",
+			name: env.CSUI_CROSS_SEED_CONTAINER ?? env.CSUI_SERVICE_NAME ?? "cross-seed",
+			dockerHost: env.DOCKER_HOST,
+		};
+	}
+	return out;
+}
+
 export function loadSettings(path: string): AgentSettings {
 	let raw: Partial<AgentSettings>;
-	try {
-		raw = JSON.parse(readFileSync(path, "utf8"));
-	} catch (e) {
-		throw new Error(`Cannot read agent settings ${path}: ${(e as Error).message}`);
+	if (!existsSync(path) && process.env.CSUI_AGENT_SECRET) {
+		raw = settingsFromEnv();
+	} else {
+		try {
+			raw = { ...JSON.parse(readFileSync(path, "utf8")), ...settingsFromEnv() };
+		} catch (e) {
+			throw new Error(`Cannot read agent settings ${path}: ${(e as Error).message}`);
+		}
 	}
 	const s: AgentSettings = {
 		...DEFAULT_SETTINGS,

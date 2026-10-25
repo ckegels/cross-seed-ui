@@ -67,9 +67,17 @@ export class ActivityTracker {
 	lastMatch: MatchEvent | null = null;
 	lastError: Activity["lastError"] = null;
 	lastLogAt: number | null = null;
+	/** set while cross-seed validates its config / indexes torrents after a (re)start */
+	bootingSince: number | null = null;
 
 	feed(e: LogEntry, ev: LogEvent | null) {
 		this.lastLogAt = e.ts;
+		if (e.label === null && e.message === "Validating your configuration...") {
+			this.bootingSince = e.ts;
+			this.running.clear();
+			this.resetProgress();
+		}
+		if (e.message.includes("Your configuration is invalid")) this.bootingSince = null;
 		if (["info", "warn", "error"].includes(e.level)) {
 			this.lastEvent = { ts: e.ts, text: shorten(`${e.label ? `[${e.label}] ` : ""}${e.message}`) };
 		}
@@ -78,6 +86,7 @@ export class ActivityTracker {
 			case "server-start":
 				this.running.clear();
 				this.progress = null;
+				this.bootingSince = null;
 				break;
 			case "job-start":
 				this.running.set(ev.job, e.ts);
@@ -131,10 +140,12 @@ export class ActivityTracker {
 		this.lastProgressTs = null;
 	}
 
-	snapshot(serviceActive: boolean): Activity {
+	snapshot(serviceActive: boolean, serviceStarting = false): Activity {
 		const runningJobs = [...this.running].map(([name, since]) => ({ name, since }));
 		let state = "idle";
-		if (!serviceActive) state = "stopped";
+		const booting = this.bootingSince !== null && Date.now() - this.bootingSince < 30 * 60_000;
+		if (serviceStarting || (serviceActive && booting)) state = "starting";
+		else if (!serviceActive) state = "stopped";
 		else if (this.running.has("search")) state = "searching";
 		else if (this.running.has("rss")) state = "rss";
 		else if (this.running.has("inject")) state = "injecting";

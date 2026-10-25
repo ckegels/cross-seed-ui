@@ -27,8 +27,11 @@ async function main() {
 	const state = openState(settings.stateDir);
 	const csdb = new CrossSeedDb(settings.crossSeedDir);
 	const config = new ConfigManager(settings.crossSeedDir, settings.stateDir, settings.maxBackups);
-	const daemon = new CrossSeedDaemon(settings.crossSeedBin, settings.crossSeedDir, csdb);
 	const service = createServiceController(settings);
+	const daemon = new CrossSeedDaemon(settings.crossSeedBin, settings.crossSeedDir, csdb, {
+		url: settings.crossSeedUrl,
+		exec: service.exec?.bind(service),
+	});
 	const tailer = new LogTailer(settings.crossSeedDir, state, {
 		backfill: settings.backfillLogs,
 		retentionDays: settings.eventRetentionDays,

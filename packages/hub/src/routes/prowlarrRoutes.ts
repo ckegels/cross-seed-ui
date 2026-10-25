@@ -164,7 +164,9 @@ export function registerProwlarrRoutes(r: Router, ctx: HubContext) {
 
 	r.get("/api/instances/:id/prowlarr", (req) => {
 		requireSession(req);
-		return policyOf(getInstance(ctx, Number(req.params.id)));
+		const inst = getInstance(ctx, Number(req.params.id));
+		// saved=false: never configured, the UI starts from what is in config.js
+		return { ...policyOf(inst), saved: !!inst.prowlarr_sync };
 	});
 
 	r.put("/api/instances/:id/prowlarr", (req) => {

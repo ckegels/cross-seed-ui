@@ -17,7 +17,7 @@ import { ensureSetupToken, registerAuthRoutes } from "./routes/authRoutes.ts";
 import { registerInstanceRoutes } from "./routes/instanceRoutes.ts";
 import { registerProwlarrRoutes, startAutoSync } from "./routes/prowlarrRoutes.ts";
 import { registerSystemRoutes } from "./routes/systemRoutes.ts";
-import { loadHubSettings, settingsPathFromArgs } from "./settings.ts";
+import { agentsFromEnv, loadHubSettings, settingsPathFromArgs } from "./settings.ts";
 
 declare const __CSUI_VERSION__: string | undefined;
 const VERSION = typeof __CSUI_VERSION__ === "string" ? __CSUI_VERSION__ : "dev";
@@ -66,6 +66,31 @@ async function main() {
 		sessions: new Sessions(db, settings),
 		throttle: new LoginThrottle(),
 	};
+
+	// Docker: register agents given in the environment (once per URL)
+	for (const a of agentsFromEnv()) {
+		if (a.secret.length < 32) {
+			console.error(`[hub] ignoring agent ${a.url}: secret must be at least 32 characters`);
+			continue;
+		}
+		const existing = db.prepare("SELECT id, secret FROM instances WHERE url = ?").get(a.url) as { id: number; secret: string } | undefined;
+		if (existing) {
+			if (box.decrypt(existing.secret) !== a.secret) {
+				db.prepare("UPDATE instances SET secret = ? WHERE id = ?").run(box.encrypt(a.secret), existing.id);
+				console.log(`[hub] updated secret of agent ${a.url} from the environment`);
+			}
+			continue;
+		}
+		const sort = (db.prepare("SELECT COALESCE(MAX(sort), 0) + 1 AS n FROM instances").get() as { n: number }).n;
+		db.prepare("INSERT INTO instances (name, url, secret, color, sort, created_at) VALUES (?, ?, ?, '#2a78d6', ?, ?)").run(
+			a.name,
+			a.url,
+			box.encrypt(a.secret),
+			sort,
+			Date.now(),
+		);
+		console.log(`[hub] registered agent "${a.name}" (${a.url}) from the environment`);
+	}
 
 	const router = new Router({ bodyLimit: 64 * 1024, trustProxy: settings.trustProxy });
 	router.useAlways((req) => {

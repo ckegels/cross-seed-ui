@@ -6,6 +6,7 @@ import { ago, bytes, dateTime, duration } from "../../format.ts";
 import { useApi, useNow } from "../../hooks.ts";
 import { useApp } from "../../state.tsx";
 import { Badge, Button, Card, ErrorBox, Kv, Modal, Notice, Spinner, StatusDot, Switch, useConfirm, useToast } from "../../ui/index.tsx";
+import { RestartingModal } from "../../ui/RestartProgress.tsx";
 import { RestartResultView } from "./configDraft.tsx";
 import { SearchNowDialog } from "./LibraryTab.tsx";
 
@@ -16,10 +17,12 @@ function ServiceCard({ id }: { id: number }) {
 	const { confirm, dialog } = useConfirm();
 	const [busy, setBusy] = useState<string | null>(null);
 	const [result, setResult] = useState<RestartResult | null>(null);
+	const [restartingSince, setRestartingSince] = useState<number | null>(null);
 	const now = useNow(5000);
 	const act = async (action: "start" | "stop" | "restart") => {
 		if (action === "stop" && !(await confirm({ title: "Stop cross-seed?", body: "No searches, RSS or announce matching until you start it again.", danger: true, confirmLabel: "Stop" }))) return;
 		setBusy(action);
+		if (action !== "stop") setRestartingSince(Date.now());
 		try {
 			const r = await api.post<RestartResult & { message: string }>(inst(id, `service/${action}`), {});
 			if (action === "restart") setResult(r);
@@ -29,6 +32,7 @@ function ServiceCard({ id }: { id: number }) {
 			toast("critical", (e as Error).message);
 		} finally {
 			setBusy(null);
+			setRestartingSince(null);
 		}
 	};
 	const s = info.data?.service;
@@ -74,6 +78,7 @@ function ServiceCard({ id }: { id: number }) {
 				</div>
 			)}
 			{dialog}
+			<RestartingModal instanceId={id} startedAt={restartingSince} />
 			<Modal open={!!result} onClose={() => setResult(null)} title="Restart" footer={<Button variant="primary" onClick={() => setResult(null)}>Done</Button>}>
 				<RestartResultView result={result} />
 			</Modal>
@@ -155,9 +160,11 @@ function BackupsCard({ id }: { id: number }) {
 	const [view, setView] = useState<{ id: string; text: string } | null>(null);
 	const [restart, setRestart] = useState(true);
 	const [result, setResult] = useState<RestartResult | null>(null);
+	const [restoringSince, setRestoringSince] = useState<number | null>(null);
 	if (!isAdmin) return null;
 	const restore = async (b: BackupInfo) => {
 		if (!(await confirm({ title: "Restore this version?", body: `config.js will be replaced by the version from ${dateTime(b.createdAt)}. The current file is backed up first.`, confirmLabel: "Restore" }))) return;
+		if (restart) setRestoringSince(Date.now());
 		try {
 			const r = await api.post<{ restart: RestartResult | null }>(inst(id, `config/backups/${b.id}/restore`), { restart });
 			toast("good", "Restored");
@@ -165,6 +172,8 @@ function BackupsCard({ id }: { id: number }) {
 			void reload();
 		} catch (e) {
 			toast("critical", (e as Error).message);
+		} finally {
+			setRestoringSince(null);
 		}
 	};
 	return (
@@ -215,6 +224,7 @@ function BackupsCard({ id }: { id: number }) {
 				<p className="mb-2 text-xs text-ink-3">Secrets hidden.</p>
 				<pre className="log-line max-h-[65vh] overflow-auto rounded-lg bg-surface-2 p-3">{view?.text}</pre>
 			</Modal>
+			<RestartingModal instanceId={id} startedAt={restoringSince} saving />
 			<Modal open={!!result} onClose={() => setResult(null)} title="Restored" footer={<Button variant="primary" onClick={() => setResult(null)}>Done</Button>}>
 				<RestartResultView result={result} />
 			</Modal>

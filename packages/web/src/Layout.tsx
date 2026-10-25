@@ -26,11 +26,13 @@ export const STATE_LABEL: Record<string, string> = {
 	cleanup: "Cleanup",
 	caps: "Updating caps",
 	stopped: "Stopped",
+	starting: "Starting…",
 	offline: "Agent offline",
 };
 
 export function stateTone(state: string): "good" | "accent" | "warning" | "critical" | "neutral" {
 	if (state === "stopped" || state === "offline") return "critical";
+	if (state === "starting") return "warning";
 	if (state === "idle") return "good";
 	return "accent";
 }

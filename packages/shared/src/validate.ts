@@ -159,6 +159,7 @@ export function validateConfig(
 	const torznab = strArray("torznab", false);
 	torznab.forEach((u, i) => {
 		if (!isUrl(u)) err(["torznab"], `Indexer #${i + 1} is not a valid URL.`);
+		else if (torznab.indexOf(u) !== i) warn(["torznab"], `Indexer #${i + 1} is listed twice (same as #${torznab.indexOf(u) + 1}); remove one.`);
 	});
 
 	isBool("useClientTorrents");

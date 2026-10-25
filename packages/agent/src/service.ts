@@ -2,11 +2,13 @@
  * Control of the cross-seed daemon process.
  * - systemd: `systemctl start|stop|restart <name>` and `systemctl show` for status
  * - process: spawn a command as a child (local development)
+ * - docker:  the official cross-seed container, via the Docker API (see docker.ts)
  * - none:    status only from the daemon ping
  */
 import { type ChildProcess, execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import type { ServiceStatus } from "@csui/shared";
+import { DockerController } from "./docker.ts";
 import type { AgentSettings } from "./settings.ts";
 
 const execFileP = promisify(execFile);
@@ -18,6 +20,8 @@ export interface ServiceController {
 	restart(): Promise<void>;
 	/** recent stdout/stderr lines (journal for systemd), optionally only since `sinceMs`, ANSI stripped */
 	recentOutput(lines: number, sinceMs?: number): Promise<string[]>;
+	/** run a command where cross-seed runs (docker: inside its container) */
+	exec?(cmd: string[], timeoutMs?: number): Promise<{ stdout: string; stderr: string; code: number }>;
 }
 
 const UNIT_NAME = /^[A-Za-z0-9@._-]+$/;
@@ -196,6 +200,8 @@ export function createServiceController(s: AgentSettings): ServiceController {
 	switch (s.service.manager) {
 		case "systemd":
 			return new SystemdController(s.service.name);
+		case "docker":
+			return new DockerController(s.service.name, s.service.dockerHost);
 		case "process":
 			if (!s.service.command?.length) throw new Error("service.command is required for manager=process");
 			return new ProcessController(s.service.command, s.service.env ?? {});
