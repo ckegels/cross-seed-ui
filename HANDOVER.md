@@ -4,7 +4,7 @@
 > project should be able to continue from this file alone. When you finish a step, update
 > "Current status", tick the checklist, and add a line to the "Change log" at the bottom.
 
-Last updated: 2026-10-25 (step 1: research + scaffolding)
+Last updated: 2026-10-25 (step 3: agent implemented and tested against real cross-seed 6.13.9)
 
 ---
 
@@ -190,16 +190,36 @@ deploy/                ← install.sh, systemd units
 
 ## 5. Current status
 
-**Step 1 — scaffolding (in progress).**
+**Step 4 — hub (in progress).** Shared core and agent are done and tested.
+
+#### Agent (packages/agent) — done
+- `settings.ts` agent.json (defaults match the community script: /root/.cross-seed, systemd `cross-seed`).
+- `crossSeedConfig.ts` load config.js via child `node` (like cross-seed), save = hash check → restore secrets →
+  validate → render → test-load tmp file → backup (stateDir/backups, max 50) → atomic rename (keeps file mode).
+- `restart.ts` restart + verify: success = "Server is running" (or "Your configuration is valid!" then still indexing),
+  failure = "Your configuration is invalid" / process exit. **cross-seed exits before winston flushes the file**, so the
+  rejection reason is read from the journal (systemd) / process output. Auto-rollback restores the backup and restarts.
+- `crossSeedDb.ts` read-only queries (stats, indexers, decisions, library). `daemon.ts` API key resolution
+  (config.apiKey → settings table → `cross-seed api-key` CLI, because the key is generated lazily), /api/job, /api/webhook,
+  whitelisted CLI maintenance commands. `connTests.ts` torznab caps, arr system/status, qBit/Transmission/Deluge/rTorrent
+  login, notification POST. `logs.ts` tails verbose.*.log with byte cursors stored transactionally with the events,
+  daily counters for high-volume lines, live activity tracker, SSE stream. `stats.ts` aggregates.
+- Verified locally: info, config read, job trigger, activity, save+restart (1.6 s), bad config → rejected → auto rollback,
+  unsigned request → 401.
+
+#### Dev environment (local, not in git)
+- cross-seed 6.13.9 installed in the scratchpad dir `csdev/` with a dataDirs-only config (action save, no clients).
+- `dev/agent.json` (gitignored) runs the agent with `service.manager = "process"` so it spawns `cross-seed daemon` itself.
+- `scripts/dev.sh start|stop|restart agent|hub` and `node --import tsx scripts/agent-call.ts dev/agent.json GET /v1/info`.
 
 ### Checklist
 
 - [x] Research cross-seed v6 internals (config, API, DB, logs, jobs, validation)
 - [x] Survey existing UIs
 - [x] Confirm owner environment + topology
-- [ ] Monorepo scaffolding, TypeScript, build scripts
-- [ ] Shared: option metadata + validator + HMAC + log parser (+ tests)
-- [ ] Agent: config read/write/backup/rollback, DB stats, logs + SSE, service control, job triggers, connection tests
+- [x] Monorepo scaffolding, TypeScript (build scripts still TODO)
+- [x] Shared: option metadata + validator + HMAC + log parser (+ tests, 20 passing)
+- [x] Agent: config read/write/backup/rollback, DB stats, logs + SSE, service control, job triggers, connection tests
 - [ ] Hub: setup/login/sessions/2FA/rate-limit, instances, proxy, Prowlarr, audit log
 - [ ] Web: login, overview, instance dashboard, activity/logs, indexers, connections, settings, history, maintenance
 - [ ] Install/update script + systemd units + release workflow
@@ -217,3 +237,5 @@ See checklist. Work top to bottom.
 ## 7. Change log
 
 - 2026-10-25 — Research done; architecture decided (hub + agents, Node-only, node:sqlite, esbuild bundles); handover created.
+- 2026-10-25 — Shared core written + tests (validator port, redaction w/ same-host rule, log parser, config renderer, HMAC, router).
+- 2026-10-25 — Agent written and tested against real cross-seed 6.13.9 (save/restart/rollback verified).
