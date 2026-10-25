@@ -92,7 +92,9 @@ export class Router {
 	match(method: string, path: string): { route: Route; params: Record<string, string> } | "method" | null {
 		const segs = path.split("/").filter(Boolean);
 		let methodMismatch = false;
-		for (const route of this.routes) {
+		// exact routes win over wildcard routes, regardless of registration order
+		const ordered = [...this.routes.filter((r) => r.parts.at(-1) !== "*"), ...this.routes.filter((r) => r.parts.at(-1) === "*")];
+		for (const route of ordered) {
 			if (route.parts.length !== segs.length) {
 				// trailing wildcard support: "*" as last part
 				if (!(route.parts.at(-1) === "*" && segs.length >= route.parts.length - 1)) continue;

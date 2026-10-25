@@ -204,7 +204,7 @@ subshell umask for the token, `tar --no-same-owner`, release chowned root and ch
 #### Tests
 - `npm test` (node:test via tsx): shared (validator, redaction, durations, log parser, config renderer),
   hub (scrypt, TOTP RFC 6238 vector, SecretBox tamper, HMAC replay/tamper, Prowlarr merge/select, throttle, cookies),
-  agent (ConfigManager write/backup/conflict/restore/refuse broken file, activity tracker). 40 tests.
+  agent (ConfigManager write/backup/conflict/restore/refuse broken file, activity tracker), router precedence. 30 tests in 14 suites.
 - `npm run typecheck` for all 4 packages.
 
 #### Security review notes (done 2026-10-25)
@@ -213,6 +213,20 @@ subshell umask for the token, `tar --no-same-owner`, release chowned root and ch
 - Agent `/v1/fs/dirs` + `/v1/test` (SSRF-ish) are admin-only via the hub whitelist. Raw config.js editing needs sudo
   (it is code executed as root). Viewer role only gets GETs without `reveal`.
 - No `dangerouslySetInnerHTML`; strict CSP; all state-changing requests need `x-csui: 1`.
+
+#### Demo environment (scripts/demo/) — added 2026-10-25
+`scripts/demo/demo.sh start|stop|reset` (DEMO_DIR default /tmp/cross-seed-ui-demo, hub on :2470,
+login `demo` / `show me around`, viewer `viewer` / `look but dont touch`). Two **real** cross-seed 6.13.9 daemons
+(installed into DEMO_DIR/cs) against `mock-services.ts` on :9696 = fake qBittorrent per instance (`/qbit/a|b`, accepts
+real injections, in-memory), Prowlarr API + 6 fictional private trackers (Torznab with `<prowlarrindexer>` names,
+"fresh uploads" every 7 min for RSS, Lumen returns 429 on even hours), Sonarr/Radarr (`/api` ping must return
+`{current}`), notification sink. `catalog.ts` = deterministic library (87 + 46 torrents, sparse files via `make-files.ts`),
+`seed-history.ts` = 13 days of logs in cross-seed's format + DB rows (indexers, searchees, timestamps, decisions, job_log),
+`write-config.ts` = realistic config.js. Used for the owner preview before going public and for README screenshots.
+
+**Bug found with the demo (fixed):** `/api/instances/:id/prowlarr` was shadowed by the proxy wildcard
+`/api/instances/:id/*` (registered first) → per-instance Prowlarr panel could never load/save. Router now always
+prefers exact routes over wildcard routes (test added).
 
 #### Known gaps / ideas for later
 - cross-seed only creates log files once it validated its config; before that the UI points to the journal.
@@ -339,3 +353,5 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Build/release script, installer, CLI, systemd units; e2e tested install/agent/update/rollback in containers.
 - 2026-10-25 — Mobile overflow fix, status hints, raw-path proxy signing, more tests (40), README/CHANGELOG/CI/release workflow.
 - 2026-10-25 — Private GitHub repo created, CI green, v0.1.0 released; real GitHub install test found the umask bug → v0.1.1.
+- 2026-10-25 — Demo kit (scripts/demo) for the owner preview; found + fixed router wildcard shadowing the Prowlarr policy routes.
+- Next: owner reviews the demo → then (if approved) generic README for public, LICENSE choice, rewrite commit emails, make repo public.
