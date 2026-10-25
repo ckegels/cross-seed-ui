@@ -4,7 +4,7 @@
 > project should be able to continue from this file alone. When you finish a step, update
 > "Current status", tick the checklist, and add a line to the "Change log" at the bottom.
 
-Last updated: 2026-10-25 (step 3: agent implemented and tested against real cross-seed 6.13.9)
+Last updated: 2026-10-25 (step 7: feature-complete v0.1.0, waiting for GitHub repo + first release)
 
 ---
 
@@ -190,8 +190,32 @@ deploy/                ← install.sh, systemd units
 
 ## 5. Current status
 
-**Step 7 — polish, README, GitHub repo + release workflow (in progress).** Packaging, installer, update and
-rollback are done and were tested end-to-end in systemd containers that mimic the community-script LXC.
+**Step 8 — publish (waiting on owner).** v0.1.0 is feature-complete, tested (unit + e2e in containers), README,
+CHANGELOG, CI and release workflows exist. **Not done yet:** the private GitHub repo `ckegels/cross-seed-ui` has not
+been created and nothing is pushed (outward-facing action, needs the owner's OK). After creating it: push `main`, then
+`git tag v0.1.0 && git push --tags` → the Release workflow publishes `cross-seed-ui-0.1.0.tar.gz` + `.sha256`, which
+`install.sh` downloads. Then install on the real LXCs (README "Install").
+
+#### Tests
+- `npm test` (node:test via tsx): shared (validator, redaction, durations, log parser, config renderer),
+  hub (scrypt, TOTP RFC 6238 vector, SecretBox tamper, HMAC replay/tamper, Prowlarr merge/select, throttle, cookies),
+  agent (ConfigManager write/backup/conflict/restore/refuse broken file, activity tracker). 40 tests.
+- `npm run typecheck` for all 4 packages.
+
+#### Security review notes (done 2026-10-25)
+- Secret restore never hands a secret to a different host (prevents exfiltration by editing only the hostname).
+- Proxy forwards the raw encoded path (signed path == sent path); whitelist regexes anchored; backup ids can't start with a dot.
+- Agent `/v1/fs/dirs` + `/v1/test` (SSRF-ish) are admin-only via the hub whitelist. Raw config.js editing needs sudo
+  (it is code executed as root). Viewer role only gets GETs without `reveal`.
+- No `dangerouslySetInnerHTML`; strict CSP; all state-changing requests need `x-csui: 1`.
+
+#### Known gaps / ideas for later
+- cross-seed only creates log files once it validated its config; before that the UI points to the journal.
+- Tracker names come from cross-seed (Prowlarr indexer names); custom Torznab without names shows "UnknownTracker".
+- Statistics of injections only exist from when the agent first parsed the logs (it backfills the 14 days cross-seed keeps).
+- Possible next features: notifications from the hub (e.g. Discord) on failures, per-instance comparisons, hub-side
+  history snapshots of indexer health, one-click update from the UI (agent could run `cross-seed-ui update`),
+  autobrr/announce statistics page (daily `announces` counters are already collected by the agent).
 
 #### Packaging & install — done
 - `scripts/build.mjs` → `dist/` (agent.mjs + hub.mjs bundled by esbuild, web/, bin/cross-seed-ui, deploy/, VERSION);
@@ -288,7 +312,9 @@ added to hub, wrong secret → 401, foreign IP → 403, update 0.1.0 → 0.1.1 w
 - [x] Web: login, overview, instance dashboard, activity/logs, indexers, connections, settings, history, maintenance
 - [x] Install/update script + systemd units (release workflow: written, not yet run on GitHub)
 - [x] End-to-end test against a real cross-seed 6.13.9 daemon (local + systemd containers)
-- [ ] README
+- [x] README, CHANGELOG, CI + release workflows
+- [ ] Create private GitHub repo, push, tag v0.1.0 (needs owner OK)
+- [ ] Install on the real LXCs
 
 ---
 
@@ -306,3 +332,4 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Hub written; smoke-tested setup token, login, CSRF, instance add, overview, proxy whitelist, headers.
 - 2026-10-25 — Web UI written; mock Torznab + screenshots; fixed indexer URL matching, delayed last_run, searching state.
 - 2026-10-25 — Build/release script, installer, CLI, systemd units; e2e tested install/agent/update/rollback in containers.
+- 2026-10-25 — Mobile overflow fix, status hints, raw-path proxy signing, more tests (40), README/CHANGELOG/CI/release workflow.

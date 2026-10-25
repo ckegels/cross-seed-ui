@@ -190,8 +190,9 @@ export function registerInstanceRoutes(r: Router, ctx: HubContext) {
 		const reveal = req.query.get("reveal") === "1";
 		const s = check(reveal ? "sudo" : rule.level, req);
 		const t = targetOf(inst, box);
-		const qs = req.url.search;
-		const agentPath = `/v1/${sub}${qs}`;
+		// forward the raw (still encoded) path so the signed path is exactly what is sent
+		const rawSub = req.url.pathname.split("/").slice(4).join("/");
+		const agentPath = `/v1/${rawSub}${req.url.search}`;
 
 		if (sub === "logs/stream") {
 			await pipeAgentSse(t, agentPath, res, (cb) => req.raw.on("close", cb));

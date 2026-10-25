@@ -84,7 +84,14 @@ function InstanceCard({ e, now, onAction }: { e: OverviewEntry; now: number; onA
 				<ErrorBox error={e.error} />
 			) : (
 				<>
-					<ActivityLine activity={e.activity} now={now} />
+					{svc && svc.state !== "active" && svc.manager !== "none" ? (
+						<Notice tone="critical" title={`cross-seed is not running (${svc.state}${svc.subState ? `, ${svc.subState}` : ""})`}>
+							Usually a config problem. Check <Link to={`/i/${e.instance.id}/settings`} className="text-accent hover:underline">Settings</Link> for errors or the{" "}
+							<Link to={`/i/${e.instance.id}/maintenance`} className="text-accent hover:underline">service output</Link>.
+						</Notice>
+					) : (
+						<ActivityLine activity={e.activity} now={now} />
+					)}
 					<div className="grid grid-cols-3 gap-2 text-center">
 						<div className="rounded-lg bg-surface-2 py-2">
 							<div className="text-lg font-semibold tabular">{compact(e.stats?.results.injected24h ?? 0)}</div>
@@ -301,7 +308,7 @@ export function OverviewPage() {
 							label="Indexers healthy"
 							icon={totals.limited ? <CircleAlert size={13} className="text-warning-text" /> : <CheckCircle2 size={13} className="text-good-text" />}
 							value={`${totals.idxOk}/${totals.idxTotal}`}
-							sub={totals.limited ? `${totals.limited} rate limited or failing` : "all reachable"}
+							sub={!totals.idxTotal ? "no indexers configured" : totals.limited ? `${totals.limited} rate limited or failing` : "none rate limited or failing"}
 						/>
 					</div>
 

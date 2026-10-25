@@ -4,7 +4,7 @@ import type { Activity, LogLine } from "@csui/shared";
 import { inst, qs } from "../../api.ts";
 import { dateTime, time } from "../../format.ts";
 import { useApi, useEventSource, useNow } from "../../hooks.ts";
-import { Badge, Button, Card, cx, ErrorBox, Input, Segmented, Select, Spinner, StatusDot } from "../../ui/index.tsx";
+import { Badge, Button, Card, cx, ErrorBox, Input, Notice, Segmented, Select, Spinner, StatusDot } from "../../ui/index.tsx";
 import { ActivityLine } from "../Overview.tsx";
 
 const LEVEL_CLS: Record<string, string> = {
@@ -170,6 +170,13 @@ function LogBrowser({ id }: { id: number }) {
 				</form>
 			</div>
 			{error && <ErrorBox error={error} retry={reload} />}
+			{data && !data.files.length && (
+				<div className="mb-3">
+					<Notice tone="warning" title="cross-seed has not written any log files yet">
+						If it refuses its configuration it stops before creating them. The reason is in Maintenance → Service output.
+					</Notice>
+				</div>
+			)}
 			{!data ? <Spinner /> : <LogView lines={data.lines} follow filter="" />}
 			{data?.truncated && <p className="mt-2 text-xs text-ink-3">Showing the newest {data.lines.length} matching lines.</p>}
 		</Card>

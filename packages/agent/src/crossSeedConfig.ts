@@ -219,7 +219,7 @@ export class ConfigManager {
 	}
 
 	private backupPath(id: string): string {
-		if (!/^[\w.-]+$/.test(id)) throw new HttpError(400, "Invalid backup id", "bad_request");
+		if (!/^[\w-][\w.-]*$/.test(id) || id.includes("..")) throw new HttpError(400, "Invalid backup id", "bad_request");
 		return join(this.backupDir, `${id}.js`);
 	}
 

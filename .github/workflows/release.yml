@@ -1,0 +1,31 @@
+name: Release
+
+# Push a tag like v0.2.0 to publish a release that `install.sh` / `cross-seed-ui update` can download.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Build release tarball
+        run: CSUI_VERSION="${GITHUB_REF_NAME#v}" node scripts/build.mjs --release
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" release/* \
+            --title "cross-seed-ui $GITHUB_REF_NAME" \
+            --notes-file <(sed -n "/^## ${GITHUB_REF_NAME#v}/,/^## /p" CHANGELOG.md | sed '$d')

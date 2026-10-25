@@ -15,7 +15,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p packages/shared && tsc -p packages/agent && tsc -p packages/hub && tsc -p packages/web",
-    "test": "node --import tsx --test --test-reporter=spec \"packages/*/test/**/*.test.ts\"",
+    "test": "node --disable-warning=ExperimentalWarning --import tsx --test --test-reporter=spec \"packages/*/test/**/*.test.ts\"",
     "dev:agent": "node --import tsx --watch packages/agent/src/main.ts --config dev/agent.json",
     "dev:hub": "node --import tsx --watch packages/hub/src/main.ts --config dev/hub.json",
     "dev:web": "npm -w packages/web run dev",
