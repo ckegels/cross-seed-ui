@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1
+
+- Indexer health hides indexers that are no longer in config.js (cross-seed keeps them in its database); a
+  "Show removed indexers" link brings them back.
+- The "last error" on the dashboard and overview no longer shows errors from before cross-seed's latest (re)start
+  or older than 24 hours.
+
 ## 0.3.0
 
 - **Docker support.** One image, `ghcr.io/ckegels/cross-seed-ui` (amd64 + arm64), runs as web UI (`hub`) or `agent`.

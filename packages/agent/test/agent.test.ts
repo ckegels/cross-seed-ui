@@ -98,4 +98,14 @@ describe("ActivityTracker", () => {
 		assert.equal(t.snapshot(false).state, "stopped");
 		assert.equal(t.snapshot(false, true).state, "starting");
 	});
+	it("forgets errors from before the last (re)start", () => {
+		const t = new ActivityTracker();
+		const p = (n: number) => String(n).padStart(2, "0");
+		const d = new Date();
+		const ts = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.000`;
+		feed(t, `${ts} error: [torznab] Failed to reach Torr9 (Prowlarr): request failed`);
+		assert.match(t.snapshot(true).lastError?.text ?? "", /Torr9/);
+		feed(t, `${ts} info: [server] Server is running on port 2468, ^C to stop.`);
+		assert.equal(t.snapshot(true).lastError, null);
+	});
 });

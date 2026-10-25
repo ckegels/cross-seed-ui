@@ -80,6 +80,7 @@ function HealthTable() {
 	const now = useNow();
 	const toast = useToast();
 	const [clearing, setClearing] = useState(false);
+	const [showRemoved, setShowRemoved] = useState(false);
 	const torznab = (draft.torznab as string[]) ?? [];
 	const removeUrl = (dbUrl: string) => set("torznab", torznab.filter((u) => !sameIndexerUrl(u, dbUrl)));
 	// cross-seed's indexer table stores the URL without the apikey: test the config entry instead
@@ -142,7 +143,7 @@ function HealthTable() {
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-line">
-							{data.map((i) => (
+							{data.filter((i) => i.inConfig || showRemoved).map((i) => (
 								<tr key={`${i.id}-${i.url}`} className={i.inConfig ? "" : "opacity-60"}>
 									<td className="px-4 py-2.5 min-w-56">
 										<div className="font-medium">
@@ -183,6 +184,14 @@ function HealthTable() {
 							))}
 						</tbody>
 					</table>
+					{data.some((i) => !i.inConfig) && (
+						<div className="border-t border-line px-4 py-2.5 text-xs text-ink-3">
+							<button type="button" className="text-accent hover:underline" onClick={() => setShowRemoved(!showRemoved)}>
+								{showRemoved ? "Hide" : "Show"} {data.filter((i) => !i.inConfig).length} removed indexer{data.filter((i) => !i.inConfig).length === 1 ? "" : "s"}
+							</button>
+							{" "}· no longer in config.js; cross-seed keeps their history in its database.
+						</div>
+					)}
 				</div>
 			)}
 		</Card>

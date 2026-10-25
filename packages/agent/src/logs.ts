@@ -91,6 +91,8 @@ export class ActivityTracker {
 				this.running.clear();
 				this.progress = null;
 				this.bootingSince = null;
+				// errors from before this (re)start are history, not current problems
+				this.lastError = null;
 				break;
 			case "job-start":
 				this.running.set(ev.job, e.ts);
@@ -172,7 +174,7 @@ export class ActivityTracker {
 			progress: state === "searching" || state === "rss" ? this.progress : null,
 			lastEvent: this.lastEvent,
 			lastMatch: this.lastMatch,
-			lastError: this.lastError,
+			lastError: this.lastError && Date.now() - this.lastError.ts < 24 * 3600_000 ? this.lastError : null,
 			lastLogAt: this.lastLogAt,
 		};
 	}

@@ -373,6 +373,7 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Mobile overflow fix, status hints, raw-path proxy signing, more tests (40), README/CHANGELOG/CI/release workflow.
 - 2026-10-25 — Private GitHub repo created, CI green, v0.1.0 released; real GitHub install test found the umask bug → v0.1.1.
 - 2026-10-25 — Demo kit (scripts/demo); found + fixed router wildcard shadowing the Prowlarr policy routes (v0.1.2).
+- 2026-10-25 — 0.3.1: hide removed indexers (toggle), lastError cleared on server-start and after 24 h.
 - 2026-10-25 — 0.3.0: Docker image + compose + docs, docker service manager, env settings, agent auto-registration.
 - 2026-10-25 — 0.2.1 from the first real install: Prowlarr picker replaced instead of adding (now starts from
   config + confirms removals), restart progress UI, "starting" state, health-table Test 401 (DB url has no apikey),
