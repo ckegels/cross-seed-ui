@@ -190,7 +190,24 @@ deploy/                ← install.sh, systemd units
 
 ## 5. Current status
 
-**Step 4 — hub (in progress).** Shared core and agent are done and tested.
+**Step 5 — web UI (in progress).** Shared core, agent and hub are done and smoke-tested.
+
+#### Hub (packages/hub) — done
+- `settings.ts` hub.json (port **2470**, stateDir /var/lib/cross-seed-ui/hub, webDir, trustProxy, secureCookies, optional TLS).
+- `db.ts` users / sessions / instances / settings / audit (node:sqlite).
+- `crypto.ts` scrypt passwords, AES-256-GCM for agent secrets + Prowlarr key (key file `stateDir/secret.key`), TOTP (RFC 6238).
+- `auth.ts` sessions (cookie `csui_sid`, HttpOnly, SameSite=Strict, Secure on HTTPS; only SHA-256 of the token stored;
+  idle 7 d / max 30 d; invalidated on password change), login throttle (5 fails/15 min per user, 20 per IP),
+  CSRF = header `x-csui: 1` required on every non-GET + Origin check, roles admin/viewer, "sudo" = password re-check
+  within 10 min for secrets/raw config/users/instances.
+- First run: setup token in `stateDir/setup-token`, printed in the hub log; deleted after the admin is created.
+- `routes/instanceRoutes.ts` instance CRUD (agent tested before saving) + `/api/overview` + proxy
+  `/api/instances/:id/*` → agent `/v1/*` with a **whitelist** (RULES) and permission level per endpoint; `?reveal=1` needs sudo;
+  config saves get `author`; audit entries for every change.
+- `routes/prowlarrRoutes.ts` Prowlarr settings, indexer list (with which instance uses each), per-instance sync policy
+  (selected ids / Prowlarr tags / all, privateOnly, auto) and sync (only Prowlarr entries in torznab are touched), auto-sync every 6 h.
+- `routes/systemRoutes.ts` version + GitHub latest release check, audit log.
+- Security headers: strict CSP (no inline scripts), XFO DENY, nosniff, no-referrer, COOP, HSTS on HTTPS.
 
 #### Agent (packages/agent) — done
 - `settings.ts` agent.json (defaults match the community script: /root/.cross-seed, systemd `cross-seed`).
@@ -220,7 +237,7 @@ deploy/                ← install.sh, systemd units
 - [x] Monorepo scaffolding, TypeScript (build scripts still TODO)
 - [x] Shared: option metadata + validator + HMAC + log parser (+ tests, 20 passing)
 - [x] Agent: config read/write/backup/rollback, DB stats, logs + SSE, service control, job triggers, connection tests
-- [ ] Hub: setup/login/sessions/2FA/rate-limit, instances, proxy, Prowlarr, audit log
+- [x] Hub: setup/login/sessions/2FA/rate-limit, instances, proxy, Prowlarr, audit log
 - [ ] Web: login, overview, instance dashboard, activity/logs, indexers, connections, settings, history, maintenance
 - [ ] Install/update script + systemd units + release workflow
 - [ ] End-to-end test against a real cross-seed 6.13.9 daemon (local)
@@ -239,3 +256,4 @@ See checklist. Work top to bottom.
 - 2026-10-25 — Research done; architecture decided (hub + agents, Node-only, node:sqlite, esbuild bundles); handover created.
 - 2026-10-25 — Shared core written + tests (validator port, redaction w/ same-host rule, log parser, config renderer, HMAC, router).
 - 2026-10-25 — Agent written and tested against real cross-seed 6.13.9 (save/restart/rollback verified).
+- 2026-10-25 — Hub written; smoke-tested setup token, login, CSRF, instance add, overview, proxy whitelist, headers.
