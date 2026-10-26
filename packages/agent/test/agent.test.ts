@@ -105,8 +105,8 @@ describe("ActivityTracker", () => {
 		const p = (n: number) => String(n).padStart(2, "0");
 		const d = new Date();
 		const ts = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}.000`;
-		feed(t, `${ts} error: [qbittorrent] qBittorrent login failed: Torr9 test error`);
-		assert.match(t.snapshot(true).lastError?.text ?? "", /Torr9/);
+		feed(t, `${ts} error: [qbittorrent] qBittorrent login failed: example test error`);
+		assert.match(t.snapshot(true).lastError?.text ?? "", /example test error/);
 		feed(t, `${ts} info: [server] Server is running on port 2468, ^C to stop.`);
 		assert.equal(t.snapshot(true).lastError, null);
 	});
@@ -118,7 +118,7 @@ describe("statistics", () => {
 		const { mkdirSync } = await import("node:fs");
 		mkdirSync(join(dir, "logs"));
 		const line = (h: number) =>
-			`2026-10-23 ${String(h).padStart(2, "0")}:49:41.875 error: [inject] Found The.Wrong.Girls.2026.1080p.WEBRip.x265-DH.mkv [fdf6845b...] on TorrentLeech by MATCH from dataDir (/mnt/x.mkv) - failed to inject, saving...`;
+			`2026-10-23 ${String(h).padStart(2, "0")}:49:41.875 error: [inject] Found Some.Movie.2024.1080p.WEB-DL.x264-GRP.mkv [0a1b2c3d...] on ExampleTracker by MATCH from dataDir (/data/x.mkv) - failed to inject, saving...`;
 		writeFileSync(join(dir, "logs", "verbose.2026-10-23.log"), [10, 11, 12, 13].map(line).join("\n") + "\n");
 		const state = openState(mkdtempSync(join(tmpdir(), "csui-st-")));
 		const tailer = new LogTailer(dir, state, { backfill: true, retentionDays: 3650 });
