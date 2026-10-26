@@ -411,7 +411,7 @@ export function buildRouter(ctx: AgentContext): Router {
 		const torznab = (config.torznab as string[]) ?? [];
 		const list = ctx.csdb.indexers(torznab, redactString);
 		const per = ctx.state
-			.prepare("SELECT tracker, result, COUNT(*) AS n FROM events WHERE type = 'match' GROUP BY tracker, result")
+			.prepare("SELECT tracker, result, COUNT(DISTINCT COALESCE(name, '') || '|' || COALESCE(tracker, '')) AS n FROM events WHERE type = 'match' GROUP BY tracker, result")
 			.all() as { tracker: string; result: string; n: number }[];
 		return list.map((i) => {
 			const mine = per.filter((p) => p.tracker === i.name);

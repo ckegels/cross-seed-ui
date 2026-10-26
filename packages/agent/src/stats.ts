@@ -31,17 +31,21 @@ async function torrentCacheInfo(crossSeedDir: string) {
 
 type Row = Record<string, unknown>;
 
+/**
+ * Counts distinct torrents per tracker and result: cross-seed's hourly inject job
+ * retries a failed injection every hour and logs it again each time.
+ */
 export function resultCounts(state: StateDb, since = 0) {
 	const out = { injected: 0, saved: 0, exists: 0, failed: 0, incomplete: 0 };
 	for (const r of state
-		.prepare("SELECT result, COUNT(*) AS n FROM events WHERE type = 'match' AND ts >= ? GROUP BY result")
+		.prepare("SELECT result, COUNT(DISTINCT COALESCE(name, '') || '|' || COALESCE(tracker, '')) AS n FROM events WHERE type = 'match' AND ts >= ? GROUP BY result")
 		.all(since) as Row[]) {
 		const k = String(r.result) as keyof typeof out;
 		if (k in out) out[k] += Number(r.n);
 	}
 	// retries performed by the hourly inject job
 	for (const r of state
-		.prepare("SELECT result, COUNT(*) AS n FROM events WHERE type = 'inject-job' AND ts >= ? GROUP BY result")
+		.prepare("SELECT result, COUNT(DISTINCT COALESCE(name, '') || '|' || COALESCE(tracker, '')) AS n FROM events WHERE type = 'inject-job' AND ts >= ? GROUP BY result")
 		.all(since) as Row[]) {
 		if (r.result === "injected") out.injected += Number(r.n);
 	}
@@ -69,7 +73,7 @@ export async function computeStats(
 	}
 	for (const r of state
 		.prepare(
-			`SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch', 'localtime') AS day, type, result, COUNT(*) AS n
+			`SELECT strftime('%Y-%m-%d', ts / 1000, 'unixepoch', 'localtime') AS day, type, result, COUNT(DISTINCT COALESCE(name, '') || '|' || COALESCE(tracker, '')) AS n
 			 FROM events WHERE type IN ('match', 'inject-job') AND ts >= ? GROUP BY day, type, result`,
 		)
 		.all(since) as Row[]) {
@@ -89,7 +93,7 @@ export async function computeStats(
 
 	const byTracker = new Map<string, TrackerStat>();
 	for (const r of state
-		.prepare("SELECT tracker, result, COUNT(*) AS n FROM events WHERE type = 'match' GROUP BY tracker, result")
+		.prepare("SELECT tracker, result, COUNT(DISTINCT COALESCE(name, '') || '|' || COALESCE(tracker, '')) AS n FROM events WHERE type = 'match' GROUP BY tracker, result")
 		.all() as Row[]) {
 		const t = String(r.tracker);
 		const s = byTracker.get(t) ?? { tracker: t, injected: 0, saved: 0, exists: 0, failed: 0, incomplete: 0 };

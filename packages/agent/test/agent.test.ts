@@ -5,7 +5,9 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { templateConfig } from "../../shared/src/options.ts";
 import { ConfigManager, detectDynamicCode } from "../src/crossSeedConfig.ts";
-import { ActivityTracker } from "../src/logs.ts";
+import { ActivityTracker, LogTailer } from "../src/logs.ts";
+import { openState } from "../src/state.ts";
+import { resultCounts } from "../src/stats.ts";
 import { extractEvent, parseLogLine } from "../../shared/src/logParse.ts";
 
 const valid = () => ({
@@ -107,5 +109,20 @@ describe("ActivityTracker", () => {
 		assert.match(t.snapshot(true).lastError?.text ?? "", /Torr9/);
 		feed(t, `${ts} info: [server] Server is running on port 2468, ^C to stop.`);
 		assert.equal(t.snapshot(true).lastError, null);
+	});
+});
+
+describe("statistics", () => {
+	it("counts an hourly-retried failed injection once", async () => {
+		const dir = mkdtempSync(join(tmpdir(), "csui-logs-"));
+		const { mkdirSync } = await import("node:fs");
+		mkdirSync(join(dir, "logs"));
+		const line = (h: number) =>
+			`2026-10-23 ${String(h).padStart(2, "0")}:49:41.875 error: [inject] Found The.Wrong.Girls.2026.1080p.WEBRip.x265-DH.mkv [fdf6845b...] on TorrentLeech by MATCH from dataDir (/mnt/x.mkv) - failed to inject, saving...`;
+		writeFileSync(join(dir, "logs", "verbose.2026-10-23.log"), [10, 11, 12, 13].map(line).join("\n") + "\n");
+		const state = openState(mkdtempSync(join(tmpdir(), "csui-st-")));
+		const tailer = new LogTailer(dir, state, { backfill: true, retentionDays: 3650 });
+		await tailer.poll();
+		assert.equal(resultCounts(state).failed, 1);
 	});
 });

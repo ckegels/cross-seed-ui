@@ -286,7 +286,10 @@ export function DashboardTab({ id }: { id: number }) {
 								<p className="text-sm text-ink-3">No decisions yet.</p>
 							)}
 						</Card>
-						<Card title="Trackers" subtitle="Cross-seeds added per tracker">
+						<Card
+							title="Trackers"
+							subtitle={`Distinct cross-seeds per tracker${s.results.since ? ` since ${new Date(s.results.since).toLocaleDateString()} (from cross-seed's logs, which it keeps 14 days)` : ""}`}
+						>
 							<BarList
 								items={s.byTracker.map((t) => ({
 									key: t.tracker,

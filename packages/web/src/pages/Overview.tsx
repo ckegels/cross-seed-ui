@@ -246,6 +246,10 @@ export function OverviewPage() {
 	};
 	const trend = (metric: "injected" | "matches" | "searches") => chartData(metric).map((d) => Object.values(d.values).reduce((a, b) => a + b, 0)).slice(-14);
 
+	const since = useMemo(() => {
+		const all = (data ?? []).map((e) => e.stats?.results.since).filter((x): x is number => !!x);
+		return all.length ? Math.min(...all) : null;
+	}, [data]);
 	const trackers = useMemo(() => {
 		const m = new Map<string, { injected: number; saved: number; failed: number }>();
 		for (const e of data ?? []) {
@@ -338,7 +342,11 @@ export function OverviewPage() {
 					</div>
 
 					<div className="grid gap-3 xl:grid-cols-5">
-						<Card title="Top trackers" subtitle="Cross-seeds added per tracker, all time" className="xl:col-span-2">
+						<Card
+							title="Top trackers"
+							subtitle={`Distinct cross-seeds per tracker${since ? ` since ${new Date(since).toLocaleDateString()}` : ""} (counted from cross-seed's logs)`}
+							className="xl:col-span-2"
+						>
 							<BarList
 								items={trackers.map((t) => ({
 									key: t.tracker,

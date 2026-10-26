@@ -1,6 +1,6 @@
 {
   "name": "cross-seed-ui",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "Web UI to manage, monitor and get statistics for cross-seed v6 daemons (hub + agents)",
   "license": "MIT",

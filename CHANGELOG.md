@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.2
+
+- Statistics count each torrent once per tracker and result. cross-seed retries a failed injection every hour and
+  logged it again each time, so one stuck torrent showed up as dozens of failures.
+- The tracker cards say from which date their numbers start (they are built from cross-seed's logs, which it keeps
+  for 14 days; the agent keeps its own history for a year from installation).
+
 ## 0.3.1
 
 - Indexer health hides indexers that are no longer in config.js (cross-seed keeps them in its database); a
