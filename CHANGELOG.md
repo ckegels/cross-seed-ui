@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.3
+
+- Same as 0.3.2, plus a faster, more reliable Docker release build: the app is built once and the amd64/arm64 images
+  only copy it (the emulated arm64 npm install hung for 0.3.2, so 0.3.2 has no Docker image).
+
 ## 0.3.2
 
 - Statistics count each torrent once per tracker and result. cross-seed retries a failed injection every hour and

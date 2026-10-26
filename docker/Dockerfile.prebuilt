@@ -1,0 +1,25 @@
+# Release image from an already built dist/ (see .github/workflows/release.yml).
+# The JavaScript is platform independent, so multi-arch builds only copy files.
+# For a local build from source use the Dockerfile in the repository root.
+FROM node:22-alpine
+ARG VERSION=dev
+LABEL org.opencontainers.image.title="cross-seed-ui" \
+      org.opencontainers.image.description="Web UI to manage, monitor and get statistics for cross-seed v6" \
+      org.opencontainers.image.source="https://github.com/ckegels/cross-seed-ui" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="$VERSION"
+WORKDIR /app
+COPY dist/agent.mjs dist/hub.mjs dist/VERSION ./
+COPY dist/web ./web
+COPY docker/entrypoint.sh /usr/local/bin/cross-seed-ui
+ENV NODE_ENV=production \
+    CSUI_STATE_DIR=/state \
+    CSUI_WEB_DIR=/app/web \
+    CSUI_CROSS_SEED_DIR=/config
+RUN mkdir -p /state && chown node:node /state && chmod 755 /usr/local/bin/cross-seed-ui
+USER node
+VOLUME /state
+EXPOSE 2469 2470
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s CMD cross-seed-ui healthcheck
+ENTRYPOINT ["cross-seed-ui"]
+CMD ["hub"]
